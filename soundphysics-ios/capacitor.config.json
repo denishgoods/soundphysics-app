@@ -1,0 +1,14 @@
+{
+  "appId": "com.denis.soundphysics",
+  "appName": "Sound Physics",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#0d0f14",
+    "allowsLinkPreview": false,
+    "scrollEnabled": false
+  },
+  "server": {
+    "iosScheme": "capacitor"
+  }
+}
