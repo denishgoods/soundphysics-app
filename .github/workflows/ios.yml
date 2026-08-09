@@ -5,6 +5,10 @@ on:
     branches: [main]
   workflow_dispatch: {}
 
+defaults:
+  run:
+    working-directory: soundphysics-ios
+
 jobs:
   build:
     runs-on: macos-14
@@ -42,4 +46,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: SoundPhysics-ipa
-          path: ios/App/SoundPhysics-unsigned.ipa
+          path: soundphysics-ios/ios/App/SoundPhysics-unsigned.ipa
