@@ -1,0 +1,45 @@
+name: build-ios
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install deps & generate iOS project
+        run: |
+          npm install
+          npx cap add ios || true
+          npx cap sync ios
+
+      - name: Add microphone permission
+        run: |
+          /usr/libexec/PlistBuddy -c \
+            "Add :NSMicrophoneUsageDescription string 'Sound Physics records short sounds to turn them into instruments.'" \
+            ios/App/App/Info.plist || true
+
+      - name: Build unsigned IPA
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App \
+            -configuration Release -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+          mkdir -p Payload
+          cp -r build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -r SoundPhysics-unsigned.ipa Payload
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SoundPhysics-ipa
+          path: ios/App/SoundPhysics-unsigned.ipa
