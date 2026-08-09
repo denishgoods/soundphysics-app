@@ -19,11 +19,20 @@ jobs:
         with:
           node-version: 20
 
+      - name: Check web assets exist
+        run: |
+          echo "--- www contents ---"
+          ls -la www
+          test -f www/index.html || (echo "MISSING www/index.html"; exit 1)
+          du -h www/index.html
+
       - name: Install deps & generate iOS project
         run: |
           npm install
           npx cap add ios || true
           npx cap sync ios
+          echo "--- copied into app bundle ---"
+          ls -la ios/App/App/public | head
 
       - name: Add microphone permission
         run: |
@@ -31,16 +40,30 @@ jobs:
             "Add :NSMicrophoneUsageDescription string 'Sound Physics records short sounds to turn them into instruments.'" \
             ios/App/App/Info.plist || true
 
-      - name: Build unsigned IPA
+      - name: Archive (unsigned)
         run: |
           cd ios/App
-          xcodebuild -workspace App.xcworkspace -scheme App \
+          xcodebuild archive \
+            -workspace App.xcworkspace -scheme App \
             -configuration Release -sdk iphoneos \
-            -derivedDataPath build \
+            -archivePath $PWD/App.xcarchive \
             CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO
+
+      - name: Package IPA + report contents
+        run: |
+          cd ios/App
+          APP=App.xcarchive/Products/Applications/App.app
+          echo "--- app bundle ---"
+          du -sh $APP
+          ls $APP | head -20
+          echo "--- frameworks ---"
+          ls $APP/Frameworks 2>/dev/null || echo "(none embedded)"
+          echo "--- web assets ---"
+          ls $APP/public | head
           mkdir -p Payload
-          cp -r build/Build/Products/Release-iphoneos/App.app Payload/
-          zip -r SoundPhysics-unsigned.ipa Payload
+          cp -r $APP Payload/
+          zip -qr SoundPhysics-unsigned.ipa Payload
+          du -h SoundPhysics-unsigned.ipa
 
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4
