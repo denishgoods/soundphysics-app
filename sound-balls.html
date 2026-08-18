@@ -1,0 +1,3061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sound Physics">
+<meta name="theme-color" content="#0d0f14">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<title>Sound Physics</title>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --frame: #2a2f3a;
+    --text: #e8eaf0;
+    --dim: #8a90a0;
+    --accent: #ff4d5a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  header {
+    padding: 14px 20px 6px;
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+  }
+  .tab {
+    background: none;
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    color: var(--dim);
+    cursor: pointer;
+    padding: 2px 0;
+    border-bottom: 2px solid transparent;
+  }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  header span { font-size: 12px; color: var(--dim); }
+  #world { margin-left: auto; margin-right: 16px; font-style: italic; }
+  #eventlog {
+    position: absolute;
+    left: 28px; bottom: 14px;
+    z-index: 2;
+    font-size: 11px;
+    color: var(--dim);
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .evline { transition: opacity 2s; }
+  #stage-wrap { flex: 1; position: relative; padding: 10px 20px; min-height: 0; }
+  canvas#stage { width: 100%; height: 100%; display: block; border-radius: 14px; position: relative; z-index: 1; touch-action: none; }
+  canvas#glstage {
+    position: absolute;
+    top: 10px; bottom: 10px; left: 20px; right: 20px;
+    width: calc(100% - 40px); height: calc(100% - 20px);
+    border-radius: 14px;
+    display: none;
+  }
+  footer {
+    padding: 10px 20px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+  }
+  #recBtn {
+    width: 74px; height: 74px;
+    border-radius: 50%;
+    border: 3px solid var(--accent);
+    background: rgba(255,77,90,0.12);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: transform 0.1s, background 0.15s;
+    touch-action: none;
+  }
+  #recBtn.recording {
+    background: var(--accent);
+    color: #fff;
+    animation: pulse 0.9s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(255,77,90,0.5); }
+    50% { box-shadow: 0 0 0 16px rgba(255,77,90,0); }
+  }
+  #recBtn:active { transform: scale(0.94); }
+  .side-btn {
+    background: none;
+    border: 1px solid var(--frame);
+    color: var(--dim);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .side-btn:hover { color: var(--text); border-color: var(--dim); }
+  .side-btn.rec-on {
+    color: var(--accent);
+    border-color: var(--accent);
+    animation: pulse 0.9s ease-in-out infinite;
+  }
+  .side-btn.fx-on { color: #7ec8ff; border-color: #7ec8ff; }
+
+  /* ---- controls design language: thin tracks, precise round thumbs ---- */
+  input[type=range] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 3px;
+    background: #262b36;
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    background: #aab2c4;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+    transition: background 0.15s, transform 0.12s;
+  }
+  input[type=range]:hover::-webkit-slider-thumb,
+  input[type=range]:active::-webkit-slider-thumb {
+    background: var(--accent);
+    transform: scale(1.2);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    background: #aab2c4;
+    border: none;
+    cursor: pointer;
+  }
+  input[type=range]::-moz-range-track { height: 3px; background: #262b36; border-radius: 2px; }
+  input[type=checkbox] { accent-color: var(--accent); cursor: pointer; }
+  .side-btn {
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-size: 11px;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .side-btn:hover { background: rgba(255,255,255,0.04); }
+  #knobs label {
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-size: 10px;
+  }
+  #knobs .val { color: var(--text); }
+  #hazeCtl { text-transform: uppercase; letter-spacing: 0.6px; font-size: 10px; }
+  #hazeCtl {
+    font-size: 11px;
+    color: var(--dim);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  #hazeCtl input { width: 80px; accent-color: var(--accent); }
+  #hint {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: var(--dim);
+    font-size: 14px;
+    line-height: 1.7;
+    pointer-events: none;
+    transition: opacity 0.4s;
+  }
+  #hint.hidden { opacity: 0; }
+  #knobs {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 10px 22px;
+    padding: 6px 20px 0;
+    font-size: 11px;
+    color: var(--dim);
+    min-height: 30px;
+  }
+  #knobs label { display: flex; align-items: center; gap: 8px; }
+  #knobs input[type=range] {
+    width: 110px;
+    accent-color: var(--accent);
+  }
+  #knobs .val { min-width: 34px; color: var(--text); font-variant-numeric: tabular-nums; }
+  #mixer {
+    position: absolute;
+    top: 18px; left: 28px;
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    background: rgba(13,15,20,0.72);
+    border: 1px solid var(--frame);
+    border-radius: 10px;
+    padding: 8px 10px;
+    z-index: 2;
+    max-height: 60%;
+    overflow-y: auto;
+  }
+  .mixrow { display: flex; align-items: center; gap: 8px; }
+  .mixrow .swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .mixrow input[type=range] { width: 80px; accent-color: var(--accent); }
+  .mixrow button {
+    background: none;
+    border: 1px solid var(--frame);
+    color: var(--dim);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 2px 7px;
+  }
+  .mixrow button:hover { color: var(--text); }
+  #err {
+    position: absolute;
+    bottom: 12px; left: 50%;
+    transform: translateX(-50%);
+    color: #ffb3b9;
+    font-size: 12px;
+    background: rgba(40,10,14,0.85);
+    padding: 6px 14px;
+    border-radius: 8px;
+    display: none;
+  }
+
+  /* ---- phones ---- */
+  @media (max-width: 700px) {
+    body { height: 100dvh; }
+    header {
+      padding: max(10px, env(safe-area-inset-top)) 12px 4px;
+      gap: 12px;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    header::-webkit-scrollbar { display: none; }
+    .tab { font-size: 12px; white-space: nowrap; }
+    #world { display: none; }
+    #count { display: none; }
+    #stage-wrap { padding: 6px 10px; }
+    canvas#glstage { top: 6px; bottom: 6px; left: 10px; right: 10px; width: calc(100% - 20px); height: calc(100% - 12px); }
+    #knobs { gap: 8px 12px; padding: 4px 10px 0; }
+    #knobs input[type=range] { width: 76px; }
+    footer {
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
+    }
+    #recBtn { width: 62px; height: 62px; }
+    .side-btn { padding: 7px 10px; font-size: 10px; }
+    #mixer { top: 10px; left: 14px; padding: 6px 8px; }
+    .mixrow input[type=range] { width: 64px; }
+    #eventlog { left: 14px; bottom: 8px; font-size: 10px; }
+    #hint { font-size: 12px; width: 90%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <button class="tab active" data-tab="balls">BALLS</button>
+  <button class="tab" data-tab="pendulum">PENDULUM</button>
+  <button class="tab" data-tab="shape">SHAPE</button>
+  <button class="tab" data-tab="ambient">AMBIENT</button>
+  <button class="tab" data-tab="ambient2">DAYDREAM</button>
+  <button class="tab" data-tab="disint">LOOPS</button>
+  <button class="tab" data-tab="rhythm">RHYTHM</button>
+  <span id="world"></span>
+  <span id="count">0 balls</span>
+</header>
+
+<div id="stage-wrap">
+  <canvas id="glstage"></canvas>
+  <canvas id="stage"></canvas>
+  <div id="mixer"></div>
+  <div id="hint"></div>
+  <div id="err"></div>
+  <div id="eventlog"></div>
+</div>
+
+<div id="knobs"></div>
+
+<footer>
+  <button class="side-btn" id="clearBtn">Clear</button>
+  <button id="recBtn">HOLD</button>
+  <button class="side-btn" id="muteBtn">Mute</button>
+  <button class="side-btn" id="sessionBtn">&#9210; Rec session</button>
+  <button class="side-btn" id="loadBtn">Load</button>
+  <button class="side-btn" id="freezeBtn">Freeze</button>
+  <label id="hazeCtl">Haze <input type="range" id="hazeSlider" min="0" max="1" step="0.02" value="0"></label>
+  <label id="hazeCtl">Field <input type="range" id="fieldSlider" min="0" max="1" step="0.02" value="0"></label>
+  <input type="file" id="fileIn" accept="audio/*" multiple style="display:none">
+</footer>
+
+<script>
+(() => {
+  // ---------- device profile ----------
+  // phones: lighter visuals, fewer frames. audio is untouched.
+  const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+                    (navigator.maxTouchPoints > 1 && window.innerWidth < 900);
+  const DRAW_FPS = IS_MOBILE ? 30 : 60;
+  const GL_SCALE = IS_MOBILE ? 0.34 : 0.5;   // shader render scale
+  const TRAIL_LEN = IS_MOBILE ? 60 : 110;
+  const WIRE_LON = IS_MOBILE ? 40 : 64;      // supershape wireframe density
+  const WIRE_LAT = IS_MOBILE ? 20 : 32;
+
+  // ---------- tunables ----------
+  const MIN_HIT_GAP_MS = 150;      // balls: skip corner double-hits closer than this
+  const PENDULUM_PERIOD = 2.0;     // seconds per full swing (same speed for all)
+  const PENDULUM_AMP = 1.1;        // swing amplitude, radians (~63 deg)
+  const SHAPE_LAP_TIME = 6.0;      // seconds for a dot to travel the full shape
+  const SHAPE_M1 = 6;              // longitude symmetry r1(theta), keep even
+  const SHAPE_M2 = 8;              // latitude symmetry r2(phi), keep even
+  const SHAPE_MORPH_SPEED = 0.05;  // how fast the shape drifts
+  const DRIFT_AMT = 0.4;           // circles speed drift: +/-40%
+  const DRIFT_RATE = 0.07;         // rad/s -> one slow cycle ~90s
+  // shape tab musicality
+  const SHAPE_BPM = 112;           // tempo for quantized hits
+  const SHAPE_SWING = 0.62;        // offbeat position: 0.5 = straight, 0.66 = triplet swing
+  const SHAPE_SCALE = [0, 3, 5, 7, 10, 12, 15]; // minor pentatonic, semitones up
+  const SHAPE_PROMINENCE = 0.07;   // ignore spikes smaller than this (fraction of max radius)
+  const SHAPE_MAX_SILENCE_MS = 2000; // after this long without a hit, next spike plays regardless
+  // ambient engine
+  const AMB_RATES = [0.749, 1, 1.498]; // -5, 0, +7 semitones: one step max, no octaves
+  const AMB_RATE_WEIGHTS = [2, 3, 1.2];
+  const AMB_GRAIN_MIN = 4, AMB_GRAIN_MAX = 10; // grain length, seconds
+  const AMB_INTERVAL_MIN = 1.6, AMB_INTERVAL_MAX = 4.5; // pause between new grains
+  const AMB_WET = 0.85, AMB_DRY = 0.5; // reverb mix
+  // tape character (each voice gets its own delay, all settings drift slowly)
+  const TAPE_DELAY_MIN = 0.1, TAPE_DELAY_MAX = 0.6; // per-voice delay time range
+  const TAPE_FB_MIN = 0.25, TAPE_FB_MAX = 0.55;     // feedback drift range
+  const TAPE_DELAY_MIX = 0.4;      // delay level
+  const TAPE_TONE = 5500;          // overall high-cut, Hz (tape dullness)
+  const GRAIN_WARBLE = 0.007;      // per-grain pitch wobble depth (+/-0.7%)
+
+  // ---------- dom ----------
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+  const recBtn = document.getElementById('recBtn');
+  const hint = document.getElementById('hint');
+  const errBox = document.getElementById('err');
+  const countEl = document.getElementById('count');
+
+  // ---------- state ----------
+  let audioCtx = null;
+  let masterGain = null;
+  let stream = null;
+  let recorder = null;
+  let chunks = [];
+  let recording = false;
+  let muted = false;
+  let recCounter = 0;
+  let activeTab = 'balls';
+
+  const scenes = {
+    balls:    { items: [], ripples: [] },
+    pendulum: { items: [], ripples: [] },
+    shape:    { items: [], ripples: [] },
+    ambient:  { items: [], ripples: [] },
+    ambient2: { items: [], ripples: [] },
+    disint:   { items: [], ripples: [] },
+    rhythm:   { items: [], ripples: [] },
+  };
+  const NOUNS = { balls: 'ball', pendulum: 'pendulum', shape: 'dot', ambient: 'voice', ambient2: 'voice', disint: 'loop', rhythm: 'kit' };
+
+  const HUES = [355, 200, 45, 150, 275, 20, 310, 90];
+  let hueIdx = 0;
+
+  // ---------- live settings (bound to per-tab knobs) ----------
+  const S = {
+    ballSpeed: 1,
+    pendPeriod: PENDULUM_PERIOD,
+    shapeBpm: SHAPE_BPM,
+    shapeSwing: SHAPE_SWING,
+    shapeMorph: SHAPE_MORPH_SPEED,
+    ambDensity: 1,
+    ambDelay: TAPE_DELAY_MIX,
+    ambVerb: AMB_WET,
+    ambDrive: 1.4,
+    shapeDelay: 0.35,
+    shapeVerb: 0.5,
+    amb2Density: 1.3,
+    amb2Shimmer: 0.65,
+    amb2Delay: 0.4,
+    amb2Verb: 0.7,
+    amb2Dust: 0.25,
+    amb2Sat: 1.6,
+    amb2Stretch: 1,
+    disSpeed: 0.5,
+    disLife: 12,
+    disVerb: 0.9,
+    rhyBpm: 96,
+    rhySwing: 0.56,
+    rhyDensity: 1,
+    rhyMut: 0.12,
+    rhyWarm: 0.6,
+    hbLevel: 0,
+    disPendant: false,
+    haze: 0,
+    field: 0,
+    ballsDelay: 0.3,
+    ballsVerb: 0.35,
+    ballsVol: 1, pendulumVol: 1, shapeVol: 1, ambientVol: 1, ambient2Vol: 1, disintVol: 1, rhythmVol: 1,
+  };
+
+  const VOL_KNOB = tab => ({
+    key: tab + 'Vol', label: 'Volume', min: 0, max: 1.5, step: 0.02,
+    fmt: v => Math.round(v * 100) + '%',
+  });
+
+  const KNOBS = {
+    balls: [
+      { key: 'ballSpeed', label: 'Speed', min: 0.2, max: 2.5, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
+      { key: 'ballsDelay', label: 'Delay', min: 0, max: 1, step: 0.02, fmt: v => Math.round(v * 100) + '%' },
+      { key: 'ballsVerb', label: 'Reverb', min: 0, max: 1.5, step: 0.02, fmt: v => Math.round(v * 100) + '%' },
+      VOL_KNOB('balls'),
+    ],
+    pendulum: [
+      { key: 'pendPeriod', label: 'Period', min: 0.5, max: 4, step: 0.1, fmt: v => v.toFixed(1) + 's' },
+      VOL_KNOB('pendulum'),
+    ],
+    shape: [
+      { key: 'shapeBpm', label: 'Tempo', min: 60, max: 180, step: 1, fmt: v => v + '' },
+      { key: 'shapeSwing', label: 'Swing', min: 0.5, max: 0.75, step: 0.01, fmt: v => Math.round(v * 100) + '%' },
+      { key: 'shapeMorph', label: 'Morph', min: 0, max: 0.25, step: 0.005, fmt: v => v.toFixed(3) },
+      { key: 'shapeDelay', label: 'Delay', min: 0, max: 1, step: 0.02, fmt: v => Math.round(v * 100) + '%' },
+      { key: 'shapeVerb', label: 'Reverb', min: 0, max: 1.5, step: 0.02, fmt: v => Math.round(v * 100) + '%' },
+      VOL_KNOB('shape'),
+    ],
+    ambient: [
+      { key: 'ambDensity', label: 'Density', min: 0.3, max: 3, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
+      { key: 'ambDelay', label: 'Delay', min: 0, max: 1, step: 0.02, fmt: v => Math.round(v * 100) + '%' },
+      { key: 'ambVerb', label: 'Reverb', min: 0, max: 1.5, step: 0.02, fmt: v => Math.round(v * 100) + '%' },
+      { key: 'ambDrive', label: 'Drive', min: 1, max: 4, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
+      VOL_KNOB('ambient'),
+    ],
+    ambient2: [
+      { key: 'amb2Density', label: 'Density', min: 0.3, max: 3, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
+      { key: 'amb2Shimmer', label: 'Shimmer', min: 0, max: 1, step: 0.02, fmt: v => Math.round(v * 100) + '%' },
+      { key: 'amb2Delay', label: 'Delay', min: 0, max: 1, step: 0.02, fmt: v => Math.round(v * 100) + '%' },
+      { key: 'amb2Verb', label: 'Reverb', min: 0, max: 1.5, step: 0.02, fmt: v => Math.round(v * 100) + '%' },
+      { key: 'amb2Dust', label: 'Dust', min: 0, max: 1, step: 0.02, fmt: v => Math.round(v * 100) + '%' },
+      { key: 'amb2Sat', label: 'Saturate', min: 1, max: 4, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
+      { key: 'amb2Stretch', label: 'Stretch', min: 1, max: 3, step: 0.25, fmt: v => v.toFixed(2) + 'x' },
+      VOL_KNOB('ambient2'),
+    ],
+    disint: [
+      { key: 'disSpeed', label: 'Speed', min: 0.25, max: 1, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
+      { key: 'disLife', label: 'Lifespan', min: 2, max: 30, step: 1, fmt: v => v + 'min' },
+      { key: 'disVerb', label: 'Reverb', min: 0, max: 1.5, step: 0.02, fmt: v => Math.round(v * 100) + '%' },
+      { key: 'disPendant', label: 'Pendant', toggle: true },
+      VOL_KNOB('disint'),
+    ],
+    rhythm: [
+      { key: 'rhyBpm', label: 'Tempo', min: 70, max: 160, step: 1, fmt: v => v + '' },
+      { key: 'rhySwing', label: 'Swing', min: 0.5, max: 0.7, step: 0.01, fmt: v => Math.round(v * 100) + '%' },
+      { key: 'rhyDensity', label: 'Density', min: 0.5, max: 1.5, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
+      { key: 'rhyMut', label: 'Mutation', min: 0, max: 0.5, step: 0.02, fmt: v => Math.round(v * 100) + '%' },
+      { key: 'rhyWarm', label: 'Warmth', min: 0, max: 1, step: 0.02, fmt: v => Math.round(v * 100) + '%' },
+      { key: 'hbLevel', label: 'Heartbeat', min: 0, max: 1, step: 0.02, fmt: v => Math.round(v * 100) + '%' },
+      VOL_KNOB('rhythm'),
+    ],
+  };
+
+  function renderKnobs() {
+    const box = document.getElementById('knobs');
+    box.innerHTML = '';
+    for (const k of KNOBS[activeTab] || []) {
+      const label = document.createElement('label');
+      if (k.toggle) {
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!S[k.key];
+        cb.addEventListener('change', () => { S[k.key] = cb.checked; });
+        label.append(k.label, cb);
+        box.appendChild(label);
+        continue;
+      }
+      const input = document.createElement('input');
+      input.type = 'range';
+      input.min = k.min; input.max = k.max; input.step = k.step;
+      input.value = S[k.key];
+      const val = document.createElement('span');
+      val.className = 'val';
+      val.textContent = k.fmt(S[k.key]);
+      input.addEventListener('input', () => {
+        S[k.key] = parseFloat(input.value);
+        val.textContent = k.fmt(S[k.key]);
+        if (k.key === 'ambVerb' && ambWet) ambWet.gain.value = S.ambVerb;
+        if (k.key === 'ambDrive' && ambDriveIn) {
+          ambDriveIn.gain.value = S.ambDrive;
+          ambMakeup.gain.value = 1 / Math.pow(S.ambDrive, 0.35);
+        }
+        if (k.key === 'shapeDelay' && shapeDlyMix) shapeDlyMix.gain.value = S.shapeDelay;
+        if (k.key === 'shapeVerb' && shapeWet) shapeWet.gain.value = S.shapeVerb;
+        if (k.key === 'amb2Verb' && amb2Wet) amb2Wet.gain.value = S.amb2Verb;
+        if (k.key === 'disVerb' && disWet) disWet.gain.value = S.disVerb;
+        if (k.key === 'ballsDelay' && ballsDlyMix) ballsDlyMix.gain.value = S.ballsDelay;
+        if (k.key === 'ballsVerb' && ballsWet) ballsWet.gain.value = S.ballsVerb;
+        if (k.key === 'amb2Sat' && amb2SatDrive) {
+          amb2SatDrive.gain.value = S.amb2Sat;
+          amb2SatMake.gain.value = 1 / Math.pow(S.amb2Sat, 0.45);
+        }
+        if (k.key.endsWith('Vol')) {
+          const tab = k.key.slice(0, -3);
+          if (outs[tab]) outs[tab].gain.value = S[k.key];
+        }
+      });
+      label.append(k.label, input, val);
+      box.appendChild(label);
+    }
+  }
+
+  const HINTS = {
+    balls: '<b>Hold</b> the red button (or hold <b>Space</b>) and make a sound —<br>tap, clap, speak, sing. Release to launch a ball.<br>Every wall hit replays your sound. Longer / louder = bigger ball.<br>Tap a ball to pop it.',
+    pendulum: '<b>Hold</b> the red button (or hold <b>Space</b>) and make a sound.<br>Release to start a pendulum. It plays your sound<br>every time it passes the middle. Tap a bob to remove it.',
+    shape: '<b>Hold</b> the red button (or hold <b>Space</b>) and make a sound.<br>Release to send a dot traveling along the shape.<br>It plays your sound at every petal tip. The shape slowly morphs.<br>Tap a dot to remove it.',
+    ambient: '<b>Hold</b> the red button (or hold <b>Space</b>) and make a sound.<br>Release to grow an ambient voice — your sound becomes<br>slow overlapping textures, fading in and out. Layer a few.<br>Tap a blob to remove it.',
+    ambient2: '<b>Hold</b> the red button (or hold <b>Space</b>) and make a sound.<br>Release into the daydream — warm tape wow, sun-soaked chorus,<br>swelling octaves, soft dropouts. Vintage nostalgia engine.<br>Tap a blob to remove it.',
+    disint: '<b>Hold</b> the red button (or hold <b>Space</b>) and record a phrase.<br>It becomes a tape loop that repeats, and slowly falls apart —<br>every pass wears it down until it dies. Basinski style.<br>Tap a ring to end it early.',
+    rhythm: '<b>Hold</b> the red button (or hold <b>Space</b>) and make a sound.<br>It becomes a 3-piece kit playing a soft, generative groove —<br>always evolving, never chaotic. Layer more kits for polyrhythm.<br>Tap a mandala to remove its kit.',
+  };
+
+  // ---------- helpers ----------
+  function showErr(msg) {
+    errBox.textContent = msg;
+    errBox.style.display = 'block';
+    clearTimeout(showErr._t);
+    showErr._t = setTimeout(() => errBox.style.display = 'none', 4000);
+  }
+
+  function updateCount() {
+    const n = scenes[activeTab].items.length;
+    const noun = NOUNS[activeTab] + (n === 1 ? '' : 's');
+    countEl.textContent = `${n} ${noun}`;
+    renderMixer();
+  }
+
+  // ---------- per-item mixer: volume fader + save sample as wav ----------
+  function bufferToWav(buffer) {
+    const nCh = buffer.numberOfChannels, rate = buffer.sampleRate, len = buffer.length;
+    const bytes = 44 + len * nCh * 2;
+    const ab = new ArrayBuffer(bytes);
+    const dv = new DataView(ab);
+    const wstr = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+    wstr(0, 'RIFF'); dv.setUint32(4, bytes - 8, true); wstr(8, 'WAVE');
+    wstr(12, 'fmt '); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true);
+    dv.setUint16(22, nCh, true); dv.setUint32(24, rate, true);
+    dv.setUint32(28, rate * nCh * 2, true); dv.setUint16(32, nCh * 2, true);
+    dv.setUint16(34, 16, true); wstr(36, 'data'); dv.setUint32(40, len * nCh * 2, true);
+    let o = 44;
+    for (let i = 0; i < len; i++) {
+      for (let c = 0; c < nCh; c++) {
+        const s = Math.max(-1, Math.min(1, buffer.getChannelData(c)[i]));
+        dv.setInt16(o, s * 0x7fff, true);
+        o += 2;
+      }
+    }
+    return new Blob([ab], { type: 'audio/wav' });
+  }
+
+  function saveSample(it) {
+    if (!it.buffer) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(bufferToWav(it.buffer));
+    a.download = `sample-${++recCounter}.wav`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  }
+
+  function renderMixer() {
+    const box = document.getElementById('mixer');
+    const items = scenes[activeTab].items;
+    box.style.display = items.length ? 'flex' : 'none';
+    box.innerHTML = '';
+    items.forEach(it => {
+      const row = document.createElement('div');
+      row.className = 'mixrow';
+      const sw = document.createElement('span');
+      sw.className = 'swatch';
+      sw.style.background = `hsl(${it.hue}, 70%, 55%)`;
+      const sl = document.createElement('input');
+      sl.type = 'range';
+      sl.min = 0; sl.max = 1.5; sl.step = 0.05;
+      sl.value = it.vol;
+      sl.addEventListener('input', () => {
+        it.vol = parseFloat(sl.value);
+        if (it.fx && it.fx.bus) it.fx.bus.gain.value = it.vol; // ambient voices: instant
+      });
+      const sv = document.createElement('button');
+      sv.textContent = '↓ wav';
+      sv.title = 'Save this sample as .wav';
+      sv.addEventListener('click', () => saveSample(it));
+      row.append(sw, sl, sv);
+      box.appendChild(row);
+    });
+  }
+
+  function updateHint() {
+    hint.innerHTML = HINTS[activeTab];
+    hint.classList.toggle('hidden', scenes[activeTab].items.length > 0);
+  }
+
+  let sessionDest = null;
+  let ambientBus = null;
+  let ambVerbIn = null;
+  let ambWet = null;
+  let ambDriveIn = null;
+  let ambMakeup = null;
+  let shapeBus = null;
+  let shapeDlyMix = null;
+  let shapeWet = null;
+  let ambientBus2 = null;
+  let ambVerbIn2 = null;
+  let amb2Wet = null;
+  let amb2DustG = null;
+  let amb2SatDrive = null;
+  let amb2SatMake = null;
+  let disintBus = null;
+  let disWet = null;
+  let rhythmBus = null;
+  let rhyLp = null;
+  let hazeLP = null, hazeVerbSend = null, hazeOut = null;
+  let scBus = null;
+  let fzDest = null, fzBed = null, fzRec = null;
+  let frozen = false;
+  let fieldMaster = null, fieldBed = null, fieldLoading = false, fieldWeather = '', fieldLp = null;
+  let ballsBus = null, ballsDlyMix = null, ballsWet = null;
+  const outs = { balls: null, pendulum: null, shape: null, ambient: null, ambient2: null, disint: null, rhythm: null };
+
+  function makeReverbIR(ctx, dur = 4.5, decay = 2.6, kBase = 0.12) {
+    const rate = ctx.sampleRate;
+    const len = Math.floor(dur * rate);
+    const buf = ctx.createBuffer(2, len, rate);
+    for (let c = 0; c < 2; c++) {
+      const data = buf.getChannelData(c);
+      // one-pole lowpass over the noise -> warm, dark tail (k smaller = darker)
+      let lp = 0;
+      const k = kBase + c * 0.03; // slight stereo tone difference
+      for (let i = 0; i < len; i++) {
+        const x = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+        lp += k * (x - lp);
+        data[i] = lp * 3;
+      }
+    }
+    return buf;
+  }
+
+  // tape hiss: shaped noise (the sound of magnetic particles)
+  function makeHissBuffer(ctx, dur = 4) {
+    const rate = ctx.sampleRate;
+    const len = Math.floor(dur * rate);
+    const buf = ctx.createBuffer(2, len, rate);
+    for (let c = 0; c < 2; c++) {
+      const data = buf.getChannelData(c);
+      let lp = 0, prev = 0;
+      for (let i = 0; i < len; i++) {
+        const w = Math.random() * 2 - 1;
+        lp += 0.55 * (w - lp);        // soften the very top
+        data[i] = (lp - prev) * 1.4;  // differentiate -> hissy high tilt
+        prev = lp;
+      }
+    }
+    return buf;
+  }
+
+  // dust + crackle: sparse random impulses, mostly tiny, occasionally a real pop
+  function makeCrackleBuffer(ctx, dur = 7) {
+    const rate = ctx.sampleRate;
+    const len = Math.floor(dur * rate);
+    const buf = ctx.createBuffer(2, len, rate);
+    for (let c = 0; c < 2; c++) {
+      const data = buf.getChannelData(c);
+      const pops = Math.floor(dur * 18); // dust density
+      for (let p = 0; p < pops; p++) {
+        const pos = Math.floor(Math.random() * len);
+        const amp = Math.pow(Math.random(), 2.6) * 0.9; // mostly whisper-small
+        const width = 20 + Math.floor(Math.random() * 220);
+        for (let i = 0; i < width && pos + i < len; i++) {
+          data[pos + i] += (Math.random() * 2 - 1) * amp * Math.exp(-i / (width * 0.25));
+        }
+      }
+    }
+    return buf;
+  }
+
+  function makeSatCurve(amount = 1.6, n = 1024) {
+    const curve = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i / (n - 1)) * 2 - 1;
+      curve[i] = Math.tanh(x * amount) / Math.tanh(amount);
+    }
+    return curve;
+  }
+
+  // tape transfer curve: tanh with a DC bias -> asymmetric clip -> even harmonics (warmth)
+  function makeTapeCurve(g = 1.5, bias = 0.12, n = 2048) {
+    const curve = new Float32Array(n);
+    const f = x => Math.tanh(g * x + bias) - Math.tanh(bias);
+    const norm = Math.max(Math.abs(f(1)), Math.abs(f(-1)));
+    for (let i = 0; i < n; i++) {
+      const x = (i / (n - 1)) * 2 - 1;
+      curve[i] = f(x) / norm;
+    }
+    return curve;
+  }
+
+  function ensureAudio() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = audioCtx.createGain();
+      // haze veil (Terekke): master passes through a filter + wash before the speakers
+      hazeLP = audioCtx.createBiquadFilter();
+      hazeLP.type = 'lowpass';
+      hazeLP.frequency.value = 18000;
+      hazeLP.Q.value = 0.5;
+      hazeOut = audioCtx.createGain();
+      masterGain.connect(hazeLP).connect(hazeOut);
+      const hazeVerb = audioCtx.createConvolver();
+      hazeVerb.buffer = makeReverbIR(audioCtx, 4, 2.6, 0.15);
+      hazeVerbSend = audioCtx.createGain();
+      hazeVerbSend.gain.value = 0;
+      hazeLP.connect(hazeVerbSend).connect(hazeVerb).connect(hazeOut);
+      // final safety stage: headroom trim + soft clipper. the DAC hard-clamps
+      // anything beyond +/-1.0 (harsh digital clipping on the speakers); this
+      // rounds peaks smoothly instead, and the recording gets the same signal.
+      const masterTrim = audioCtx.createGain();
+      masterTrim.gain.value = 0.8;
+      const masterClip = audioCtx.createWaveShaper();
+      masterClip.curve = makeSatCurve(1.3);
+      masterClip.oversample = '4x';
+      hazeOut.connect(masterTrim).connect(masterClip).connect(audioCtx.destination);
+      // tap for session recording: same limited signal you hear
+      sessionDest = audioCtx.createMediaStreamDestination();
+      masterClip.connect(sessionDest);
+
+      // sidechain bus: ambient-family tabs breathe around the heartbeat
+      scBus = audioCtx.createGain();
+      scBus.connect(masterGain);
+
+      // field recordings bed (radio aporee via archive.org)
+      // blurred into the textures: darker filter + a send into the ambient reverb
+      fieldMaster = audioCtx.createGain();
+      fieldMaster.gain.value = 0;
+      fieldLp = audioCtx.createBiquadFilter();
+      fieldLp.type = 'lowpass';
+      fieldLp.frequency.value = 4500;
+      fieldLp.Q.value = 0.4;
+      fieldMaster.connect(fieldLp).connect(scBus);
+
+      // freeze (Huerco S.): NO feedback loop. we record ~3s of the mix, then
+      // loop that captured moment quietly. it cannot ever get louder.
+      fzDest = audioCtx.createMediaStreamDestination();
+      masterGain.connect(fzDest);
+
+      // per-tab volume buses (ambient family routes through the sidechain bus)
+      const scTabs = { ambient: 1, ambient2: 1, disint: 1 };
+      for (const k in outs) {
+        outs[k] = audioCtx.createGain();
+        outs[k].gain.value = S[k + 'Vol'];
+        outs[k].connect(scTabs[k] ? scBus : masterGain);
+      }
+      // ambient sum -> tape saturation -> high-cut -> master
+      // (each voice brings its own delay; reverb is shared, fed per-voice)
+      ambientBus = audioCtx.createGain();
+      ambientBus.gain.value = AMB_DRY + 0.3;
+      // drive: push level into the soft-clipper, makeup keeps it from blasting
+      ambDriveIn = audioCtx.createGain();
+      ambDriveIn.gain.value = S.ambDrive;
+      const sat = audioCtx.createWaveShaper();
+      sat.curve = makeSatCurve();
+      sat.oversample = '2x';
+      ambMakeup = audioCtx.createGain();
+      ambMakeup.gain.value = 1 / Math.pow(S.ambDrive, 0.35);
+      const tone = audioCtx.createBiquadFilter();
+      tone.type = 'lowpass';
+      tone.frequency.value = TAPE_TONE;
+      tone.Q.value = 0.4;
+      ambientBus.connect(ambDriveIn).connect(sat).connect(ambMakeup).connect(tone).connect(outs.ambient);
+
+      // shared warm reverb (voices send into it with drifting amounts)
+      ambVerbIn = audioCtx.createGain();
+      const verb = audioCtx.createConvolver();
+      verb.buffer = makeReverbIR(audioCtx);
+      ambWet = audioCtx.createGain();
+      ambWet.gain.value = S.ambVerb;
+      ambVerbIn.connect(verb).connect(ambWet).connect(outs.ambient);
+      // field bed smears into the ambient wash
+      const fieldVerbSend = audioCtx.createGain();
+      fieldVerbSend.gain.value = 0.4;
+      fieldLp.connect(fieldVerbSend).connect(ambVerbIn);
+
+      // DAYDREAM chain: gentle saturation -> low-shelf warmth -> open top end
+      // (brighter than ambient 1: high-cut at 9k instead of 5.5k)
+      ambientBus2 = audioCtx.createGain();
+      ambientBus2.gain.value = 0.85;
+      // tape saturation: pre-emphasis -> drive -> asymmetric tanh -> DC block -> de-emphasis
+      const preE = audioCtx.createBiquadFilter();
+      preE.type = 'highshelf';
+      preE.frequency.value = 3200;
+      preE.gain.value = 4.5;
+      amb2SatDrive = audioCtx.createGain();
+      amb2SatDrive.gain.value = S.amb2Sat;
+      const sat2 = audioCtx.createWaveShaper();
+      sat2.curve = makeTapeCurve();
+      sat2.oversample = '4x';
+      const dcb = audioCtx.createBiquadFilter();
+      dcb.type = 'highpass';
+      dcb.frequency.value = 20;
+      const deE = audioCtx.createBiquadFilter();
+      deE.type = 'highshelf';
+      deE.frequency.value = 3200;
+      deE.gain.value = -4.5;
+      amb2SatMake = audioCtx.createGain();
+      amb2SatMake.gain.value = 1 / Math.pow(S.amb2Sat, 0.45);
+      const warm2 = audioCtx.createBiquadFilter();
+      warm2.type = 'lowshelf';
+      warm2.frequency.value = 300;
+      warm2.gain.value = 1.5;
+      // cut the dark rumble that reads as "scary"
+      const hp2 = audioCtx.createBiquadFilter();
+      hp2.type = 'highpass';
+      hp2.frequency.value = 160;
+      hp2.Q.value = 0.5;
+      // presence lift: sunshine lives around 2k
+      const pres2 = audioCtx.createBiquadFilter();
+      pres2.type = 'peaking';
+      pres2.frequency.value = 2000;
+      pres2.gain.value = 1.5;  // gentler: sunny, not glassy
+      pres2.Q.value = 0.6;
+      const tone2 = audioCtx.createBiquadFilter();
+      tone2.type = 'lowpass';
+      tone2.frequency.value = 10000;
+      tone2.Q.value = 0.3;
+      ambientBus2.connect(preE).connect(amb2SatDrive).connect(sat2).connect(dcb).connect(deE)
+        .connect(amb2SatMake).connect(hp2).connect(warm2).connect(pres2).connect(tone2).connect(outs.ambient2);
+      // blooming reverb: short and bright, not a haunted hall
+      ambVerbIn2 = audioCtx.createGain();
+      const verb2 = audioCtx.createConvolver();
+      verb2.buffer = makeReverbIR(audioCtx, 3.2, 2.4, 0.4);
+      amb2Wet = audioCtx.createGain();
+      amb2Wet.gain.value = S.amb2Verb;
+      ambVerbIn2.connect(verb2).connect(amb2Wet).connect(outs.ambient2);
+      // dust layer: hiss + crackle, level follows voice activity (silent when empty)
+      amb2DustG = audioCtx.createGain();
+      amb2DustG.gain.value = 0;
+      const hissSrc = audioCtx.createBufferSource();
+      hissSrc.buffer = makeHissBuffer(audioCtx);
+      hissSrc.loop = true;
+      const hissBp = audioCtx.createBiquadFilter();
+      hissBp.type = 'bandpass';
+      hissBp.frequency.value = 5000;
+      hissBp.Q.value = 0.35;
+      const hissLvl = audioCtx.createGain();
+      hissLvl.gain.value = 0.425; // -15%
+      hissSrc.connect(hissBp).connect(hissLvl).connect(amb2DustG);
+      hissSrc.start();
+      // noise breathes +/-7% with a slow LFO whose own speed drifts +/-15%
+      const hissLfo = audioCtx.createOscillator();
+      hissLfo.frequency.value = 0.0333; // ~30s cycle (50% longer fades)
+      const hissLfoG = audioCtx.createGain();
+      hissLfoG.gain.value = 0.425 * 0.07;
+      hissLfo.connect(hissLfoG).connect(hissLvl.gain);
+      hissLfo.start();
+      const hissLfoDrift = audioCtx.createOscillator();
+      hissLfoDrift.frequency.value = 0.008; // ~2min speed wander
+      const hissLfoDriftG = audioCtx.createGain();
+      hissLfoDriftG.gain.value = 0.0333 * 0.15;
+      hissLfoDrift.connect(hissLfoDriftG).connect(hissLfo.frequency);
+      hissLfoDrift.start();
+      const crackSrc = audioCtx.createBufferSource();
+      crackSrc.buffer = makeCrackleBuffer(audioCtx);
+      crackSrc.loop = true;
+      const crackLp = audioCtx.createBiquadFilter();
+      crackLp.type = 'lowpass';
+      crackLp.frequency.value = 4500;
+      crackSrc.connect(crackLp).connect(amb2DustG);
+      crackSrc.start();
+      amb2DustG.connect(ambientBus2); // dust rides through the same saturation + EQ
+
+      // disintegration loops: warm, dark, roomy
+      disintBus = audioCtx.createGain();
+      const sat3 = audioCtx.createWaveShaper();
+      sat3.curve = makeSatCurve(1.35);
+      sat3.oversample = '2x';
+      const lp3 = audioCtx.createBiquadFilter();
+      lp3.type = 'lowpass';
+      lp3.frequency.value = 7500;
+      lp3.Q.value = 0.3;
+      disintBus.connect(sat3).connect(lp3).connect(outs.disint);
+      const verb3 = audioCtx.createConvolver();
+      verb3.buffer = makeReverbIR(audioCtx, 5.5, 2.6, 0.18);
+      disWet = audioCtx.createGain();
+      disWet.gain.value = S.disVerb;
+      lp3.connect(verb3).connect(disWet).connect(outs.disint);
+
+      // rhythm machine: soft saturation, warmth filter, a small room
+      rhythmBus = audioCtx.createGain();
+      const sat4 = audioCtx.createWaveShaper();
+      sat4.curve = makeSatCurve(1.4);
+      sat4.oversample = '2x';
+      rhyLp = audioCtx.createBiquadFilter();
+      rhyLp.type = 'lowpass';
+      rhyLp.frequency.value = 8500 - S.rhyWarm * 6000;
+      rhyLp.Q.value = 0.4;
+      rhythmBus.connect(sat4).connect(rhyLp).connect(outs.rhythm);
+      const verb4 = audioCtx.createConvolver();
+      verb4.buffer = makeReverbIR(audioCtx, 1.6, 3, 0.3);
+      const rhyWet = audioCtx.createGain();
+      rhyWet.gain.value = 0.22;
+      rhyLp.connect(verb4).connect(rhyWet).connect(outs.rhythm);
+
+      // balls: soft tape delay + reverb
+      ballsBus = audioCtx.createGain();
+      ballsBus.connect(outs.balls); // dry
+      const bDelay = audioCtx.createDelay(2);
+      bDelay.delayTime.value = 0.34;
+      const bFbF = audioCtx.createBiquadFilter();
+      bFbF.type = 'lowpass';
+      bFbF.frequency.value = 2800;
+      const bFb = audioCtx.createGain();
+      bFb.gain.value = 0.38;
+      ballsDlyMix = audioCtx.createGain();
+      ballsDlyMix.gain.value = S.ballsDelay;
+      ballsBus.connect(bDelay);
+      bDelay.connect(bFbF).connect(bFb).connect(bDelay);
+      bDelay.connect(ballsDlyMix).connect(outs.balls);
+      const bWow = audioCtx.createOscillator();
+      bWow.frequency.value = 0.3;
+      const bWowG = audioCtx.createGain();
+      bWowG.gain.value = 0.004;
+      bWow.connect(bWowG).connect(bDelay.delayTime);
+      bWow.start();
+      const bVerb = audioCtx.createConvolver();
+      bVerb.buffer = makeReverbIR(audioCtx, 3.5, 2.6, 0.25);
+      ballsWet = audioCtx.createGain();
+      ballsWet.gain.value = S.ballsVerb;
+      ballsBus.connect(bVerb);
+      ballsDlyMix.connect(bVerb);
+      bVerb.connect(ballsWet).connect(outs.balls);
+
+      // shape tab: tape delay (wow on time) + warm reverb
+      shapeBus = audioCtx.createGain();
+      shapeBus.connect(outs.shape); // dry
+      const sDelay = audioCtx.createDelay(2);
+      sDelay.delayTime.value = 0.38;
+      const sFbF = audioCtx.createBiquadFilter();
+      sFbF.type = 'lowpass';
+      sFbF.frequency.value = 2800;
+      const sFb = audioCtx.createGain();
+      sFb.gain.value = 0.42;
+      shapeDlyMix = audioCtx.createGain();
+      shapeDlyMix.gain.value = S.shapeDelay;
+      shapeBus.connect(sDelay);
+      sDelay.connect(sFbF).connect(sFb).connect(sDelay);
+      sDelay.connect(shapeDlyMix).connect(outs.shape);
+      const sWow = audioCtx.createOscillator();
+      sWow.frequency.value = 0.35;
+      const sWowG = audioCtx.createGain();
+      sWowG.gain.value = 0.004;
+      sWow.connect(sWowG).connect(sDelay.delayTime);
+      sWow.start();
+      const sVerb = audioCtx.createConvolver();
+      sVerb.buffer = makeReverbIR(audioCtx);
+      shapeWet = audioCtx.createGain();
+      shapeWet.gain.value = S.shapeVerb;
+      shapeBus.connect(sVerb);
+      shapeDlyMix.connect(sVerb);
+      sVerb.connect(shapeWet).connect(outs.shape);
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  // used by any scheduled sound to fire the armed session recorder
+  function noteSoundStart() {
+    if (sessionState === 'armed') {
+      sessionRecorder.start();
+      sessionState = 'rec';
+      sessionBtnUi();
+    }
+  }
+
+  function playBuffer(buffer, vol, rate = 1, when = 0, dest = null, attack = 0) {
+    if (muted || !audioCtx) return;
+    noteSoundStart();
+    const src = audioCtx.createBufferSource();
+    src.buffer = buffer;
+    src.playbackRate.value = rate;
+    const g = audioCtx.createGain();
+    const t0 = when > audioCtx.currentTime ? when : audioCtx.currentTime;
+    if (attack > 0.002) {
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(vol, t0 + attack);
+    } else {
+      g.gain.value = vol;
+    }
+    src.connect(g).connect(dest || masterGain);
+    src.start(when > audioCtx.currentTime ? when : 0);
+  }
+
+  // next swung 8th-note grid time (audioCtx clock)
+  function nextGridTime(now) {
+    const Q = 60 / S.shapeBpm;
+    const base = Math.floor(now / Q) * Q;
+    const slots = [base, base + Q * S.shapeSwing, base + Q, base + Q + Q * S.shapeSwing];
+    for (const s of slots) if (s >= now - 0.001) return s;
+    return base + 2 * Q;
+  }
+
+  // Trim leading/trailing silence, return {buffer, duration, rms}
+  // No loudness gate: quiet recordings are kept as-is.
+  function analyzeAndTrim(buffer) {
+    const ch = buffer.getChannelData(0);
+    const thresh = 0.005;
+    let start = 0, end = ch.length - 1;
+    while (start < ch.length && Math.abs(ch[start]) < thresh) start++;
+    while (end > start && Math.abs(ch[end]) < thresh) end--;
+    start = Math.max(0, start - Math.floor(buffer.sampleRate * 0.01));
+    end = Math.min(ch.length, end + Math.floor(buffer.sampleRate * 0.05));
+    let len = end - start;
+    if (len < buffer.sampleRate * 0.03) { start = 0; end = ch.length; len = end; } // too quiet to trim: keep everything
+
+    const trimmed = audioCtx.createBuffer(buffer.numberOfChannels, len, buffer.sampleRate);
+    for (let c = 0; c < buffer.numberOfChannels; c++) {
+      trimmed.copyToChannel(buffer.getChannelData(c).subarray(start, end), c);
+    }
+    let sum = 0;
+    const data = trimmed.getChannelData(0);
+    for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
+    const rms = Math.sqrt(sum / data.length);
+    return { buffer: trimmed, duration: len / buffer.sampleRate, rms };
+  }
+
+  // ---------- recording ----------
+  async function startRecording() {
+    if (recording) return;
+    ensureAudio();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showErr('Mic is blocked here: browsers only allow it on http://localhost or https, not file:// pages. Run the launcher (start-sound-balls.command) or a local server.');
+      return;
+    }
+    try {
+      if (!stream) {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
+    } catch (e) {
+      showErr('Microphone access denied — allow the mic and try again.');
+      return;
+    }
+    chunks = [];
+    const mime = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4'
+               : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+    recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    recorder.ondataavailable = e => { if (e.data.size) chunks.push(e.data); };
+    recorder.onstop = onRecordingStopped;
+    recorder.start();
+    recording = true;
+    recBtn.classList.add('recording');
+    recBtn.textContent = 'REC';
+  }
+
+  function stopRecording() {
+    if (!recording) return;
+    recording = false;
+    recBtn.classList.remove('recording');
+    recBtn.textContent = 'HOLD';
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+  }
+
+  // ---------- session recording (records everything the field plays) ----------
+  // Arms on click, actually starts at the first sound — no leading silence.
+  let sessionRecorder = null;
+  let sessionChunks = [];
+  let sessionState = 'idle'; // 'idle' | 'armed' | 'rec'
+
+  function bestMime() {
+    return MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4'
+         : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+  }
+
+  function sessionBtnUi() {
+    const btn = document.getElementById('sessionBtn');
+    btn.classList.toggle('rec-on', sessionState !== 'idle');
+    btn.innerHTML = sessionState === 'idle' ? '&#9210; Rec session'
+                  : sessionState === 'armed' ? '&#9679; Armed&hellip;'
+                  : '&#9209; Stop &amp; save';
+  }
+
+  function toggleSessionRecording() {
+    ensureAudio();
+    if (sessionState === 'rec') { sessionRecorder.stop(); return; }
+    if (sessionState === 'armed') { sessionState = 'idle'; sessionRecorder = null; sessionBtnUi(); return; }
+
+    sessionChunks = [];
+    const mime = bestMime();
+    sessionRecorder = new MediaRecorder(sessionDest.stream, mime ? { mimeType: mime } : undefined);
+    sessionRecorder.ondataavailable = e => { if (e.data.size) sessionChunks.push(e.data); };
+    sessionRecorder.onstop = () => {
+      sessionState = 'idle';
+      sessionBtnUi();
+      const blob = new Blob(sessionChunks, { type: sessionRecorder.mimeType });
+      const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `session-${++recCounter}.${ext}`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    };
+    sessionState = 'armed'; // waits for the first sound
+    sessionBtnUi();
+  }
+
+  const SPAWN_LINES = {
+    balls: 'a new ball is set loose',
+    pendulum: 'a pendulum starts its swing',
+    shape: 'a dot takes to the path',
+    ambient: 'a voice joins the drone',
+    ambient2: 'a daydream begins',
+    disint: 'a loop starts its long life',
+    rhythm: 'a kit finds its groove',
+  };
+
+  function addSound(result) {
+    if (activeTab === 'balls') spawnBall(result);
+    else if (activeTab === 'pendulum') spawnPendulum(result);
+    else if (activeTab === 'shape') spawnShapeDot(result);
+    else if (activeTab === 'disint') spawnDisintLoop(result);
+    else if (activeTab === 'rhythm') spawnRhythmKit(result);
+    else spawnAmbientVoice(result);
+    logEvent(SPAWN_LINES[activeTab]);
+    updateCount();
+    updateHint();
+  }
+
+  async function onRecordingStopped() {
+    try {
+      const blob = new Blob(chunks, { type: recorder.mimeType });
+      const arr = await blob.arrayBuffer();
+      const decoded = await audioCtx.decodeAudioData(arr);
+      const result = analyzeAndTrim(decoded);
+      if (!result) { showErr('Too quiet — try a louder sound.'); return; }
+      addSound(result);
+    } catch (e) {
+      showErr('Could not process that recording, try again.');
+    }
+  }
+
+  // ---------- loading samples from files ----------
+  async function loadFiles(files) {
+    ensureAudio();
+    for (const f of files) {
+      try {
+        const arr = await f.arrayBuffer();
+        const decoded = await audioCtx.decodeAudioData(arr);
+        // cap very long files at 30s to keep things responsive
+        let buf = decoded;
+        if (decoded.duration > 30) {
+          const rate = decoded.sampleRate;
+          buf = audioCtx.createBuffer(decoded.numberOfChannels, rate * 30, rate);
+          for (let c = 0; c < decoded.numberOfChannels; c++) {
+            buf.copyToChannel(decoded.getChannelData(c).subarray(0, rate * 30), c);
+          }
+        }
+        const result = analyzeAndTrim(buf);
+        if (result) addSound(result);
+      } catch (e) {
+        showErr(`Couldn't decode ${f.name}`);
+      }
+    }
+  }
+
+  document.getElementById('loadBtn').addEventListener('click', () => {
+    document.getElementById('fileIn').click();
+  });
+  document.getElementById('fileIn').addEventListener('change', function () {
+    loadFiles([...this.files]);
+    this.value = '';
+  });
+  const stageWrap = document.getElementById('stage-wrap');
+  stageWrap.addEventListener('dragover', e => e.preventDefault());
+  stageWrap.addEventListener('drop', e => {
+    e.preventDefault();
+    const audio = [...e.dataTransfer.files].filter(f => f.type.startsWith('audio') || /\.(wav|mp3|m4a|ogg|flac|aif+)$/i.test(f.name));
+    if (audio.length) loadFiles(audio);
+  });
+
+  // ---------- BALLS scene ----------
+  function spawnBall({ buffer, duration, rms }) {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    const durNorm = Math.min(duration / 3, 1);
+    const loudNorm = Math.min(rms / 0.25, 1);
+    const minR = Math.min(W, H) * 0.035;
+    const maxR = Math.min(W, H) * 0.16;
+    const r = minR + (maxR - minR) * (durNorm * 0.6 + loudNorm * 0.4);
+    const speed = (Math.min(W, H) * 0.35) * (1.25 - (r - minR) / (maxR - minR) * 0.6);
+    const ang = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 0.9;
+
+    scenes.balls.items.push({
+      x: W / 2, y: H - r - 4,
+      vx: Math.cos(ang) * speed,
+      vy: Math.sin(ang) * speed,
+      r, buffer,
+      vol: 1,
+      hue: HUES[hueIdx++ % HUES.length],
+      lastHit: 0,
+      glow: 1,
+    });
+  }
+
+  function stepBalls(dt) {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    const sc = scenes.balls;
+    for (const b of sc.items) {
+      b.x += b.vx * S.ballSpeed * dt;
+      b.y += b.vy * S.ballSpeed * dt;
+      b.glow = Math.max(0, b.glow - dt * 2.5);
+
+      const speed = Math.hypot(b.vx, b.vy) || 1;
+      let hit = false;
+      if (b.x - b.r < 0)      { b.x = b.r;      b.vx = Math.abs(b.vx); hit = true; }
+      else if (b.x + b.r > W) { b.x = W - b.r;  b.vx = -Math.abs(b.vx); hit = true; }
+      if (b.y - b.r < 0)      { b.y = b.r;      b.vy = Math.abs(b.vy); hit = true; }
+      else if (b.y + b.r > H) { b.y = H - b.r;  b.vy = -Math.abs(b.vy); hit = true; }
+
+      if (hit) {
+        b.glow = 1;
+        const now = performance.now();
+        if (now - b.lastHit >= MIN_HIT_GAP_MS) {
+          b.lastHit = now;
+          playBuffer(b.buffer, (0.35 + 0.65 * Math.min(speed / (Math.min(W, H) * 0.45), 1)) * b.vol, 1, 0, ballsBus);
+        }
+        sc.ripples.push({ x: b.x, y: b.y, r: b.r, maxR: b.r * 2.6, a: 0.55, hue: b.hue });
+      }
+    }
+  }
+
+  function drawBalls() {
+    for (const b of scenes.balls.items) {
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+      ctx.fillStyle = `hsl(${b.hue}, 70%, ${52 + b.glow * 18}%)`;
+      ctx.fill();
+    }
+  }
+
+  // ---------- PENDULUM scene ----------
+  function spawnPendulum({ buffer, duration, rms }) {
+    const H = canvas.clientHeight;
+    const durNorm = Math.min(duration / 3, 1);
+    const loudNorm = Math.min(rms / 0.25, 1);
+    const n = scenes.pendulum.items.length;
+
+    scenes.pendulum.items.push({
+      buffer,
+      vol: 1,
+      hue: HUES[hueIdx++ % HUES.length],
+      // each new pendulum is longer = closer on z, drawn in front
+      L: H * (0.45 + Math.min(n, 6) * 0.06),
+      bobR: 14 + (durNorm * 0.6 + loudNorm * 0.4) * 30,
+      phase: 0,                       // starts at full amplitude, eases down naturally
+      theta: PENDULUM_AMP,
+      muted: false,
+      lastSched: 0,
+      lastTheta: PENDULUM_AMP,
+      glow: 0,
+    });
+  }
+
+  function pendulumBobPos(p, theta) {
+    const px = canvas.clientWidth / 2, py = 8;
+    return { x: px + Math.sin(theta) * p.L, y: py + Math.cos(theta) * p.L, px, py };
+  }
+
+  function stepPendulums(dt) {
+    const ta = audioCtx ? audioCtx.currentTime : 0;
+    for (const p of scenes.pendulum.items) {
+      p.phase += (2 * Math.PI / S.pendPeriod) * dt;
+      const theta = PENDULUM_AMP * Math.cos(p.phase);
+      p.theta = theta;
+      p.glow = Math.max(0, p.glow - dt * 3);
+
+      // sample-accurate trigger: schedule the sound for the exact middle crossing
+      // (crossings happen when phase mod pi === pi/2)
+      if (audioCtx && !p.muted) {
+        const omega = 2 * Math.PI / S.pendPeriod;
+        let dPhase = ((Math.PI / 2 - (p.phase % Math.PI)) + Math.PI) % Math.PI;
+        if (dPhase < 1e-4) dPhase += Math.PI;
+        const tCross = ta + dPhase / omega;
+        if (tCross < ta + 0.12 && (!p.lastSched || tCross > p.lastSched + 0.05)) {
+          playBuffer(p.buffer, 0.8 * p.vol, 1, tCross, outs.pendulum);
+          p.lastSched = tCross;
+        }
+      }
+
+      // visuals stay frame-based (the eye is far more forgiving than the ear)
+      if ((p.lastTheta > 0 && theta <= 0) || (p.lastTheta < 0 && theta >= 0)) {
+        p.glow = 1;
+        const pos = pendulumBobPos(p, theta);
+        scenes.pendulum.ripples.push({ x: pos.x, y: pos.y, r: p.bobR, maxR: p.bobR * 2.4, a: 0.55, hue: p.hue });
+      }
+      p.lastTheta = theta;
+    }
+  }
+
+  // per-pendulum mute toggles, stacked on the right side
+  function pendulumTogglePos(i) {
+    return { x: canvas.clientWidth - 26, y: 26 + i * 34, r: 11 };
+  }
+
+  function drawPendulumToggles() {
+    scenes.pendulum.items.forEach((p, i) => {
+      const { x, y, r } = pendulumTogglePos(i);
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      if (p.muted) {
+        ctx.strokeStyle = `hsla(${p.hue}, 60%, 55%, 0.6)`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x - r * 0.6, y + r * 0.6);
+        ctx.lineTo(x + r * 0.6, y - r * 0.6);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = `hsl(${p.hue}, 70%, 52%)`;
+        ctx.fill();
+      }
+    });
+  }
+
+  function drawPendulums() {
+    // oldest first -> newest drawn on top (in front)
+    for (const p of scenes.pendulum.items) {
+      const { x, y, px, py } = pendulumBobPos(p, p.theta);
+      ctx.beginPath();
+      ctx.moveTo(px, py);
+      ctx.lineTo(x, y);
+      ctx.strokeStyle = `hsla(${p.hue}, 50%, 55%, 0.45)`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x, y, p.bobR, 0, Math.PI * 2);
+      ctx.fillStyle = `hsl(${p.hue}, 70%, ${52 + p.glow * 18}%)`;
+      ctx.fill();
+    }
+    // middle line marker
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    ctx.setLineDash([4, 8]);
+    ctx.beginPath();
+    ctx.moveTo(W / 2, 0);
+    ctx.lineTo(W / 2, H);
+    ctx.strokeStyle = 'rgba(138,144,160,0.18)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    drawPendulumToggles();
+  }
+
+  // ---------- SHAPE scene (superformula path) ----------
+  // Gielis supershape: product of two superformulas -> complex morphing outline
+  let morphClock = 0; // integrated so changing morph speed doesn't jump the shape
+  function shapeParams(t) {
+    const s = morphClock;
+    return {
+      p1: {
+        m: SHAPE_M1, a: 1, b: 1,
+        n1: 4 + 3 * Math.sin(s),
+        n2: 6 + 4 * Math.sin(s * 0.74 + 1.7),
+        n3: 6 + 4 * Math.sin(s * 0.86 + 3.1),
+      },
+      p2: {
+        m: SHAPE_M2, a: 1, b: 1,
+        n1: 5 + 3.5 * Math.sin(s * 0.61 + 0.9),
+        n2: 8 + 6 * Math.sin(s * 0.53 + 2.4),
+        n3: 8 + 6 * Math.sin(s * 0.47 + 4.2),
+      },
+    };
+  }
+
+  function superR(phi, p) {
+    const t1 = Math.pow(Math.abs(Math.cos(p.m * phi / 4) / p.a), p.n2);
+    const t2 = Math.pow(Math.abs(Math.sin(p.m * phi / 4) / p.b), p.n3);
+    const r = Math.pow(t1 + t2, -1 / p.n1);
+    return isFinite(r) ? r : 0;
+  }
+
+  // 3D supershape: spherical product of r1(theta) and r2(phi)
+  function surfacePoint(theta, phi, P) {
+    const r1 = superR(theta, P.p1);
+    const r2 = superR(phi, P.p2);
+    const cp = Math.cos(phi);
+    return {
+      x: r1 * Math.cos(theta) * r2 * cp,
+      y: r1 * Math.sin(theta) * r2 * cp,
+      z: r2 * Math.sin(phi),
+    };
+  }
+
+  function surfaceRadius(theta, phi, P) {
+    const pt = surfacePoint(theta, phi, P);
+    return Math.hypot(pt.x, pt.y, pt.z);
+  }
+
+  // per-frame view: morph params, fit scale, slow rotation
+  // (the fit scan is expensive; it only needs refreshing a few times a second)
+  let fitCache = { t: -1, v: 1 };
+  function shapeView(t) {
+    const P = shapeParams(t);
+    let maxR;
+    if (t - fitCache.t < 0.25) {
+      maxR = fitCache.v;
+    } else {
+      maxR = 0;
+      for (let i = 0; i < 24; i++) for (let j = 0; j <= 12; j++) {
+        maxR = Math.max(maxR, surfaceRadius(-Math.PI + i / 24 * 2 * Math.PI, -Math.PI / 2 + j / 12 * Math.PI, P));
+      }
+      fitCache = { t, v: maxR };
+    }
+    const fit = Math.min(canvas.clientWidth, canvas.clientHeight) * 0.36;
+    return {
+      P,
+      s: maxR > 0 ? fit / maxR : fit,
+      rx: 0.5 + 0.25 * Math.sin(t * 0.07),
+      ry: t * 0.12,
+      cx: canvas.clientWidth / 2,
+      cy: canvas.clientHeight / 2,
+      fit,
+    };
+  }
+
+  function project(pt, v) {
+    const cy1 = Math.cos(v.ry), sy1 = Math.sin(v.ry);
+    const cx1 = Math.cos(v.rx), sx1 = Math.sin(v.rx);
+    const x1 = pt.x * cy1 + pt.z * sy1;
+    const z1 = -pt.x * sy1 + pt.z * cy1;
+    const y2 = pt.y * cx1 - z1 * sx1;
+    const z2 = pt.y * sx1 + z1 * cx1;
+    const persp = 3.2 * v.fit / (3.2 * v.fit - z2 * v.s);
+    return { x: v.cx + x1 * v.s * persp, y: v.cy + y2 * v.s * persp, persp };
+  }
+
+  // dots travel the actual drawn wireframe: along latitude rings, switching
+  // to longitude lines at intersections - the exact dashed paths on screen
+  const SHAPE_LAT_RINGS = 12, SHAPE_LON_LINES = 16;
+
+  function shapeDotAngles(d) {
+    return { theta: d.theta, phi: d.phi };
+  }
+
+  function stepDotOnWire(d, du) {
+    if (d.mode === 'lat') {
+      const step = Math.PI * 2 / SHAPE_LON_LINES;
+      const before = Math.floor((d.theta + Math.PI * 20) / step);
+      d.theta += du;
+      const after = Math.floor((d.theta + Math.PI * 20) / step);
+      if (after !== before && Math.random() < 0.35) {
+        // turn onto the longitude line we just crossed
+        d.theta = after * step - Math.PI * 20;
+        d.mode = 'lon';
+        d.dir = Math.random() < 0.5 ? 1 : -1;
+      }
+    } else {
+      const step = Math.PI / SHAPE_LAT_RINGS;
+      const before = Math.floor((d.phi + Math.PI * 10) / step);
+      d.phi += du * d.dir * 0.7;
+      const after = Math.floor((d.phi + Math.PI * 10) / step);
+      const limit = Math.PI / 2 - step; // don't pierce the poles
+      if (d.phi > limit) { d.phi = limit; d.mode = 'lat'; }
+      else if (d.phi < -limit) { d.phi = -limit; d.mode = 'lat'; }
+      else if (after !== before && Math.random() < 0.55) {
+        d.phi = after * step - Math.PI * 10;
+        d.mode = 'lat';
+      }
+    }
+  }
+
+  function shapeDotPos(d, v) {
+    const { theta, phi } = shapeDotAngles(d);
+    const pt = surfacePoint(theta, phi, v.P);
+    const pr = project(pt, v);
+    return { x: pr.x, y: pr.y, persp: pr.persp, R: Math.hypot(pt.x, pt.y, pt.z) };
+  }
+
+  function spawnShapeDot({ buffer, duration, rms }) {
+    const durNorm = Math.min(duration / 3, 1);
+    const loudNorm = Math.min(rms / 0.25, 1);
+    scenes.shape.items.push({
+      buffer,
+      vol: 1,
+      hue: HUES[hueIdx++ % HUES.length],
+      dotR: 8 + (durNorm * 0.6 + loudNorm * 0.4) * 18,
+      mode: 'lat',
+      theta: -Math.PI + Math.floor(Math.random() * SHAPE_LON_LINES) * (Math.PI * 2 / SHAPE_LON_LINES),
+      phi: -Math.PI / 2 + (2 + Math.floor(Math.random() * (SHAPE_LAT_RINGS - 3))) * (Math.PI / SHAPE_LAT_RINGS),
+      dir: 1,
+      latPhase: Math.random() * Math.PI * 2,
+      driftPhase: Math.random() * Math.PI * 2,
+      trail: [],
+      prevR: 0,
+      runMin: Infinity,
+      rising: false,
+      lastHit: 0,
+      glow: 0,
+    });
+  }
+
+  function stepShape(dt) {
+    const t = performance.now() / 1000;
+    morphClock += S.shapeMorph * dt;
+    const v = shapeView(t);
+    for (const d of scenes.shape.items) {
+      d.glow = Math.max(0, d.glow - dt * 3);
+      const f = 1 + DRIFT_AMT * Math.sin(t * DRIFT_RATE + d.driftPhase);
+      stepDotOnWire(d, (2 * Math.PI / SHAPE_LAP_TIME) * f * dt);
+      // remember the path in surface coordinates: the trace clings to the
+      // morphing, rotating 3d shape instead of hanging in screen space
+      const ang = shapeDotAngles(d);
+      d.trail.push({ t: ang.theta, p: ang.phi });
+      if (d.trail.length > TRAIL_LEN) d.trail.shift();
+      const pos = shapeDotPos(d, v);
+      const normR = Math.min(pos.R * v.s / v.fit, 1); // 0..1 vs current max radius
+      d.runMin = Math.min(d.runMin, normR);
+
+      // spike tip = local maximum of 3D radius along the path
+      if (pos.R > d.prevR) {
+        d.rising = true;
+      } else if (d.rising && pos.R < d.prevR) {
+        d.rising = false;
+        const prominence = normR - d.runMin;
+        const now = performance.now();
+        const starved = now - d.lastHit > SHAPE_MAX_SILENCE_MS;
+        if ((prominence >= SHAPE_PROMINENCE || starved) && now - d.lastHit >= MIN_HIT_GAP_MS) {
+          d.lastHit = now;
+          d.runMin = normR;
+          // pentatonic note from spike height, hit quantized to swung 8ths.
+          // attack and pitch drift slowly per-dot: the same note never lands twice
+          const noteIdx = Math.min(SHAPE_SCALE.length - 1, Math.floor(normR * SHAPE_SCALE.length));
+          const driftCents = 12 * Math.sin(t * 0.043 + d.latPhase * 1.7) + (Math.random() * 8 - 4);
+          const rate = Math.pow(2, SHAPE_SCALE[noteIdx] / 12 + driftCents / 1200);
+          const attack = 0.004 + (0.5 + 0.5 * Math.sin(t * 0.05 + d.driftPhase * 3)) * 0.09;
+          const when = nextGridTime(audioCtx.currentTime);
+          playBuffer(d.buffer, (0.4 + 0.6 * normR) * d.vol, rate, when, shapeBus, attack);
+          // sync visuals to the scheduled hit
+          const delayMs = Math.max(0, (when - audioCtx.currentTime) * 1000);
+          setTimeout(() => {
+            d.glow = 1;
+            scenes.shape.ripples.push({ x: pos.x, y: pos.y, r: d.dotR, maxR: d.dotR * 2.6, a: 0.55, hue: d.hue });
+          }, delayMs);
+        }
+      }
+      d.prevR = pos.R;
+    }
+  }
+
+  function drawShape() {
+    const t = performance.now() / 1000;
+    const v = shapeView(t);
+
+    ctx.setLineDash([5, 6]);
+    ctx.strokeStyle = 'rgba(138,144,160,0.38)';
+    ctx.lineWidth = 1;
+
+    // latitude rings
+    const LON_STEPS = WIRE_LON, LAT_RINGS = SHAPE_LAT_RINGS;
+    for (let j = 1; j < LAT_RINGS; j++) {
+      const phi = -Math.PI / 2 + j / LAT_RINGS * Math.PI;
+      ctx.beginPath();
+      for (let i = 0; i <= LON_STEPS; i++) {
+        const theta = -Math.PI + i / LON_STEPS * 2 * Math.PI;
+        const pr = project(surfacePoint(theta, phi, v.P), v);
+        i === 0 ? ctx.moveTo(pr.x, pr.y) : ctx.lineTo(pr.x, pr.y);
+      }
+      ctx.stroke();
+    }
+    // longitude lines
+    const LAT_STEPS = WIRE_LAT, LON_LINES = SHAPE_LON_LINES;
+    for (let i = 0; i < LON_LINES; i++) {
+      const theta = -Math.PI + i / LON_LINES * 2 * Math.PI;
+      ctx.beginPath();
+      for (let j = 0; j <= LAT_STEPS; j++) {
+        const phi = -Math.PI / 2 + j / LAT_STEPS * Math.PI;
+        const pr = project(surfacePoint(theta, phi, v.P), v);
+        j === 0 ? ctx.moveTo(pr.x, pr.y) : ctx.lineTo(pr.x, pr.y);
+      }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    for (const d of scenes.shape.items) {
+      // trace: reprojected each frame so it rides the surface, dissolving tail-first
+      if (d.trail.length > 1) {
+        ctx.lineCap = 'round';
+        let prev = project(surfacePoint(d.trail[0].t, d.trail[0].p, v.P), v);
+        for (let i = 1; i < d.trail.length; i++) {
+          const cur = project(surfacePoint(d.trail[i].t, d.trail[i].p, v.P), v);
+          const a = (i / d.trail.length) * 0.4;
+          ctx.beginPath();
+          ctx.moveTo(prev.x, prev.y);
+          ctx.lineTo(cur.x, cur.y);
+          ctx.strokeStyle = `hsla(${d.hue}, 70%, 60%, ${a})`;
+          ctx.lineWidth = 1.5 + (i / d.trail.length) * 1.5;
+          ctx.stroke();
+          prev = cur;
+        }
+      }
+      const pos = shapeDotPos(d, v);
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, d.dotR * pos.persp, 0, Math.PI * 2);
+      ctx.fillStyle = `hsl(${d.hue}, 70%, ${52 + d.glow * 18}%)`;
+      ctx.fill();
+    }
+  }
+
+  // ---------- AMBIENT scenes (granular drone engines) ----------
+  function pickRate(v) {
+    if (v && v.dream) {
+      // daydream: one step max - unison, major third; shimmer reaches the fifth
+      if (Math.random() < S.amb2Shimmer * 0.45) return 1.498 * Math.pow(2, (Math.random() * 14 - 7) / 1200);
+      const base = Math.random() < 0.6 ? 1 : 1.26; // major third = sunny
+      return base * Math.pow(2, (Math.random() * 14 - 7) / 1200);
+    }
+    const total = AMB_RATE_WEIGHTS.reduce((a, b) => a + b, 0);
+    let x = Math.random() * total;
+    for (let i = 0; i < AMB_RATES.length; i++) {
+      x -= AMB_RATE_WEIGHTS[i];
+      if (x <= 0) return AMB_RATES[i] * Math.pow(2, (Math.random() * 20 - 10) / 1200); // +/-10 cents drift
+    }
+    return 1;
+  }
+
+  // per-voice tape delay with its own drifting time/feedback/reverb-send
+  function makeVoiceFx() {
+    const bus = audioCtx.createGain();
+    const delay = audioCtx.createDelay(2);
+    delay.delayTime.value = TAPE_DELAY_MIN + Math.random() * (TAPE_DELAY_MAX - TAPE_DELAY_MIN);
+    const fbFilter = audioCtx.createBiquadFilter();
+    fbFilter.type = 'lowpass';
+    fbFilter.frequency.value = 2200 + Math.random() * 1400;
+    const fb = audioCtx.createGain();
+    fb.gain.value = (TAPE_FB_MIN + TAPE_FB_MAX) / 2;
+    const dlyMix = audioCtx.createGain();
+    dlyMix.gain.value = TAPE_DELAY_MIX;
+    const verbSend = audioCtx.createGain();
+    verbSend.gain.value = 0.7;
+
+    bus.connect(ambientBus);
+    bus.connect(delay);
+    delay.connect(fbFilter).connect(fb).connect(delay);
+    delay.connect(dlyMix).connect(ambientBus);
+    bus.connect(verbSend).connect(ambVerbIn);
+    dlyMix.connect(verbSend);
+
+    return {
+      bus, delay, fb, verbSend, dlyMix, fbFilter,
+      delRate: 0.02 + Math.random() * 0.05,   // how fast delay time drifts
+      delPhase: Math.random() * Math.PI * 2,
+      fbPhase: Math.random() * Math.PI * 2,
+      vsPhase: Math.random() * Math.PI * 2,
+      lastUpd: 0,
+    };
+  }
+
+  // granular time-stretch (keylock, like Traktor): slower WITHOUT pitch drop.
+  // Hann-windowed 90ms grains, 50% overlap-add, small input jitter to avoid
+  // the metallic periodicity of naive granular stretching.
+  function timeStretchBuffer(buffer, stretch) {
+    const rate = buffer.sampleRate;
+    const grain = Math.floor(rate * 0.09);
+    const hopOut = Math.floor(grain / 2);
+    const hopIn = hopOut / stretch;
+    const outLen = Math.floor(buffer.length * stretch);
+    const out = audioCtx.createBuffer(buffer.numberOfChannels, outLen, rate);
+    const win = new Float32Array(grain);
+    for (let i = 0; i < grain; i++) win[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / grain);
+    for (let c = 0; c < buffer.numberOfChannels; c++) {
+      const src = buffer.getChannelData(c);
+      const dst = out.getChannelData(c);
+      let ip = 0;
+      for (let op = 0; op + grain < outLen; op += hopOut) {
+        const jitter = Math.floor((Math.random() - 0.5) * rate * 0.012);
+        const start = Math.min(Math.max(0, Math.floor(ip) + jitter), buffer.length - grain);
+        for (let k = 0; k < grain; k++) dst[op + k] += src[start + k] * win[k];
+        ip = Math.min(ip + hopIn, buffer.length - grain);
+      }
+    }
+    return out;
+  }
+
+  function getStretched(v, stretch) {
+    const key = Math.round(stretch * 4) / 4; // cache in 0.25x steps
+    if (key <= 1.01) return v.loopBuf;
+    if (!v.stretchCache[key]) {
+      v.stretchCache[key] = makeLoopableBuffer(timeStretchBuffer(v.buffer, key));
+    }
+    return v.stretchCache[key];
+  }
+
+  // seamless loop: crossfade the head with the tail (equal-power), then loop
+  // before the tail begins. kills the loop-seam clicks that read as metallic buzz.
+  function makeLoopableBuffer(buffer, fadeSec = 0.12) {
+    const fade = Math.min(Math.floor(buffer.sampleRate * fadeSec), Math.floor(buffer.length / 4));
+    const out = audioCtx.createBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+    for (let c = 0; c < buffer.numberOfChannels; c++) {
+      const src = buffer.getChannelData(c);
+      const dst = out.getChannelData(c);
+      dst.set(src);
+      for (let i = 0; i < fade; i++) {
+        const w = i / fade;
+        const a = Math.cos((1 - w) * Math.PI / 2);
+        const b = Math.cos(w * Math.PI / 2);
+        dst[i] = src[i] * a + src[src.length - fade + i] * b;
+      }
+    }
+    out._loopEnd = (buffer.length - fade) / buffer.sampleRate;
+    return out;
+  }
+
+  // daydream voice: sun-soaked chorus into a brighter tape delay
+  function makeVoiceFx2() {
+    const bus = audioCtx.createGain();
+    const busOut = audioCtx.createGain();
+    // chorus: direct + short modulated delay, 50/50 -> liquid
+    const chDelay = audioCtx.createDelay(0.1);
+    chDelay.delayTime.value = 0.018;
+    const chLfo = audioCtx.createOscillator();
+    chLfo.frequency.value = 0.8 + Math.random() * 0.6;
+    const chLfoG = audioCtx.createGain();
+    chLfoG.gain.value = 0.0045;
+    chLfo.connect(chLfoG).connect(chDelay.delayTime);
+    chLfo.start();
+    const direct = audioCtx.createGain();
+    direct.gain.value = 0.72;
+    const chMix = audioCtx.createGain();
+    chMix.gain.value = 0.45; // uneven blend: softer comb, still liquid
+    bus.connect(direct).connect(busOut);
+    bus.connect(chDelay).connect(chMix).connect(busOut);
+
+    busOut.connect(ambientBus2); // dry (sun-soaked)
+    const delay = audioCtx.createDelay(2);
+    delay.delayTime.value = 0.25 + Math.random() * 0.3;
+    const fbHp = audioCtx.createBiquadFilter();
+    fbHp.type = 'highpass';
+    fbHp.frequency.value = 220;
+    const fbFilter = audioCtx.createBiquadFilter();
+    fbFilter.type = 'lowpass';
+    fbFilter.frequency.value = 4000 + Math.random() * 1500; // brighter repeats than ambient 1
+    const fb = audioCtx.createGain();
+    fb.gain.value = 0.4;
+    const dlyMix = audioCtx.createGain();
+    dlyMix.gain.value = S.amb2Delay;
+    busOut.connect(delay);
+    delay.connect(fbHp).connect(fbFilter).connect(fb).connect(delay);
+    delay.connect(dlyMix).connect(ambientBus2);
+    const verbSend = audioCtx.createGain();
+    verbSend.gain.value = 0.8;
+    busOut.connect(verbSend).connect(ambVerbIn2);
+    dlyMix.connect(verbSend);
+
+    return {
+      bus, busOut, chDelay, chLfo, chLfoG, direct, chMix,
+      delay, fb, verbSend, dlyMix, fbFilter, fbHp,
+      delRate: 0.015 + Math.random() * 0.04,
+      delPhase: Math.random() * Math.PI * 2,
+      fbPhase: Math.random() * Math.PI * 2,
+      vsPhase: Math.random() * Math.PI * 2,
+      lastUpd: 0,
+    };
+  }
+
+  function spawnAmbientVoice({ buffer, duration, rms }) {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    const loudNorm = Math.min(rms / 0.25, 1);
+    const dream = activeTab === 'ambient2';
+    scenes[dream ? 'ambient2' : 'ambient'].items.push({
+      dream,
+      vol: 1,
+      loopBuf: makeLoopableBuffer(buffer),
+      stretchCache: {},
+      nextDropAt: performance.now() / 1000 + 6 + Math.random() * 12,
+      fx: dream ? makeVoiceFx2() : makeVoiceFx(),
+      buffer,
+      hue: HUES[hueIdx++ % HUES.length],
+      baseR: 30 + (Math.min(duration / 3, 1) * 0.6 + loudNorm * 0.4) * 50,
+      ax: W * (0.2 + Math.random() * 0.6),
+      ay: H * (0.25 + Math.random() * 0.5),
+      ang: Math.random() * Math.PI * 2,
+      driftPhase: Math.random() * Math.PI * 2,
+      drift2: Math.random() * Math.PI * 2,
+      densPhase: Math.random() * Math.PI * 2,
+      envSmooth: 0,
+      lobes: [0, 1, 2].map(() => ({
+        ph: Math.random() * Math.PI * 2,
+        sp: 0.15 + Math.random() * 0.25,
+      })),
+      nextGrainAt: 0,
+      grains: [],   // {t0, att, sus, rel, vol} for visuals
+      active: [],   // live audio nodes, for kill
+      env: 0,
+    });
+  }
+
+  function spawnGrain(v) {
+    if (muted) return;
+    noteSoundStart();
+    const ta = audioCtx.currentTime;
+    // grain length scales with the recording: long takes play long stretches
+    const grainMax = Math.max(AMB_GRAIN_MAX, v.buffer.duration * 1.5);
+    // daydream grains are shorter and arrive sooner: motion feels sunny, drones feel ominous
+    const grainDur = v.dream
+      ? 3 + Math.random() * Math.max(4, Math.min(grainMax - 3, 7))
+      : AMB_GRAIN_MIN + Math.random() * (grainMax - AMB_GRAIN_MIN);
+    let att = v.dream ? 0.8 + Math.random() * 1.4 : 1.5 + Math.random() * 2;
+    let vol = 0.16 + Math.random() * 0.14;
+    if (v.dream) vol *= 0.72; // two decks sum, keep loudness even
+
+    const buf = v.dream ? getStretched(v, S.amb2Stretch) : (v.loopBuf || v.buffer);
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    src.loopStart = 0;
+    src.loopEnd = buf._loopEnd || buf.duration;
+    const baseRate = pickRate(v);
+    src.playbackRate.value = baseRate;
+    // shimmer fifths swell in slowly, sit lower, and get their top rounded off
+    let shimmerLp = null;
+    if (v.dream && baseRate > 1.4) {
+      att = Math.min(att * 2.2, grainDur * 0.5);
+      vol *= 0.5;
+      shimmerLp = audioCtx.createBiquadFilter();
+      shimmerLp.type = 'lowpass';
+      shimmerLp.frequency.value = 4200;
+      shimmerLp.Q.value = 0.4;
+    }
+    const rel = 2 + Math.random() * 3;
+    const sus = Math.max(0.2, grainDur - att - rel);
+    // wow: slow pitch wobble unique to each grain (deeper on daydream)
+    const lfo = audioCtx.createOscillator();
+    lfo.frequency.value = 0.25 + Math.random() * 0.9;
+    const lfoG = audioCtx.createGain();
+    lfoG.gain.value = baseRate * (v.dream ? 0.006 : GRAIN_WARBLE) * WX.wow; // weather leans on the wow
+    lfo.connect(lfoG).connect(src.playbackRate);
+    lfo.start(ta);
+    lfo.stop(ta + grainDur + 0.2);
+
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0, ta);
+    g.gain.linearRampToValueAtTime(vol, ta + att);
+    g.gain.setValueAtTime(vol, ta + att + sus);
+    g.gain.linearRampToValueAtTime(0, ta + att + sus + rel);
+    // flutter: fast, tiny trembling of level (daydream only)
+    if (v.dream) {
+      const fl = audioCtx.createOscillator();
+      fl.frequency.value = 5 + Math.random() * 3;
+      const flG = audioCtx.createGain();
+      flG.gain.value = vol * 0.06;
+      fl.connect(flG).connect(g.gain);
+      fl.start(ta);
+      fl.stop(ta + grainDur + 0.2);
+    }
+
+    const pan = audioCtx.createStereoPanner ? audioCtx.createStereoPanner() : null;
+    const head = shimmerLp ? src.connect(shimmerLp) : src;
+    if (pan) {
+      pan.pan.value = Math.random() * 1.4 - 0.7;
+      head.connect(g).connect(pan).connect(v.fx.bus);
+    } else {
+      head.connect(g).connect(v.fx.bus);
+    }
+
+    const offset = Math.random() * src.loopEnd;
+    src.start(ta, offset);
+    src.stop(ta + grainDur + 0.1);
+
+    const node = { src, g };
+    v.active.push(node);
+    src.onended = () => { v.active = v.active.filter(n => n !== node); };
+
+    // dual-deck flange (dream): a second deck plays the same moment,
+    // a few cents off and a few ms late, slowly drifting against the first
+    if (v.dream) {
+      const src2 = audioCtx.createBufferSource();
+      src2.buffer = buf;
+      src2.loop = true;
+      src2.loopStart = 0;
+      src2.loopEnd = src.loopEnd;
+      src2.playbackRate.value = baseRate * Math.pow(2, (Math.random() * 8 - 4) / 1200);
+      // deck 2 sits lower: shallow comb notches = soft shimmer, not metal
+      const g2 = audioCtx.createGain();
+      g2.gain.value = 0.55;
+      src2.connect(g2).connect(g);
+      src2.start(ta + 0.012 + Math.random() * 0.014, offset);
+      src2.stop(ta + grainDur + 0.1);
+      const node2 = { src: src2, g };
+      v.active.push(node2);
+      src2.onended = () => { v.active = v.active.filter(n => n !== node2); };
+    }
+
+    v.grains.push({ t0: ta, att, sus, rel, vol });
+  }
+
+  function killVoice(v) {
+    const ta = audioCtx ? audioCtx.currentTime : 0;
+    for (const n of v.active) {
+      try {
+        n.g.gain.cancelScheduledValues(ta);
+        n.g.gain.setValueAtTime(n.g.gain.value, ta);
+        n.g.gain.linearRampToValueAtTime(0, ta + 0.25);
+        n.src.stop(ta + 0.3);
+      } catch (e) { /* already stopped */ }
+    }
+    v.active = [];
+    // fade and dismantle this voice's delay loop (it feeds itself forever otherwise)
+    if (v.fx) {
+      try {
+        v.fx.bus.gain.setTargetAtTime(0, ta, 0.2);
+        v.fx.fb.gain.setTargetAtTime(0, ta, 0.5);
+      } catch (e) {}
+      setTimeout(() => {
+        for (const key in v.fx) {
+          const n = v.fx[key];
+          if (n && typeof n.stop === 'function') { try { n.stop(); } catch (e) {} }
+          if (n && typeof n.disconnect === 'function') { try { n.disconnect(); } catch (e) {} }
+        }
+      }, 4000);
+    }
+  }
+
+  function voiceEnv(v, ta) {
+    let sum = 0;
+    for (let i = v.grains.length - 1; i >= 0; i--) {
+      const gr = v.grains[i];
+      const dt = ta - gr.t0;
+      const total = gr.att + gr.sus + gr.rel;
+      if (dt > total) { v.grains.splice(i, 1); continue; }
+      if (dt < 0) continue; // scheduled in the future (worn echoes)
+      if (dt < gr.att) sum += dt / gr.att;
+      else if (dt < gr.att + gr.sus) sum += 1;
+      else sum += 1 - (dt - gr.att - gr.sus) / gr.rel;
+    }
+    return Math.min(1, sum);
+  }
+
+  function ambientVoicePos(v, t) {
+    if (v.dream) {
+      // lava-lamp drift: layered slow lissajous, continuous and eased everywhere
+      const W = canvas.clientWidth, H = canvas.clientHeight;
+      return {
+        x: v.ax + Math.sin(t * 0.041 + v.driftPhase) * W * 0.16
+                + Math.sin(t * 0.017 + v.drift2) * W * 0.07,
+        y: v.ay + Math.sin(t * 0.023 + v.drift2 * 1.3) * H * 0.2
+                + Math.cos(t * 0.049 + v.driftPhase * 0.7) * H * 0.06,
+      };
+    }
+    return {
+      x: v.ax + Math.sin(t * 0.05 + v.driftPhase) * 40,
+      y: v.ay + Math.cos(t * 0.04 + v.driftPhase * 1.7) * 30,
+    };
+  }
+
+  function stepAmbient(dt) {
+    if (!audioCtx) return;
+    const ta = audioCtx.currentTime;
+    const t = performance.now() / 1000;
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    for (const v of [...scenes.ambient.items, ...scenes.ambient2.items]) {
+      // organic density drift: sometimes lush, sometimes sparse
+      if (ta >= v.nextGrainAt) {
+        spawnGrain(v);
+        const dens = (1 + 0.5 * Math.sin(t * 0.045 + v.densPhase)) * (v.dream ? S.amb2Density : S.ambDensity) * WX.dens;
+        v.nextGrainAt = ta + (AMB_INTERVAL_MIN + Math.random() * (AMB_INTERVAL_MAX - AMB_INTERVAL_MIN)) / dens;
+      }
+      v.env = voiceEnv(v, ta);
+      // eased envelope for visuals: quick-ish rise, slow molten fall
+      const ek = v.env > v.envSmooth ? 1.4 : 0.45;
+      v.envSmooth += (v.env - v.envSmooth) * Math.min(1, dt * ek);
+
+      // failure: occasional gentle dips, the "living" tape feel (daydream only)
+      if (v.dream && t >= v.nextDropAt) {
+        v.nextDropAt = t + 8 + Math.random() * 16;
+        const target = v.fx.busOut.gain;
+        target.setTargetAtTime(0.55 + Math.random() * 0.15, ta, 0.1); // soft dip, not a blackout
+        target.setTargetAtTime(1, ta + 0.3 + Math.random() * 0.3, 0.35);
+      }
+
+      // drift this voice's tape settings (updated ~4x/sec, smoothed)
+      if (t - v.fx.lastUpd > 0.25) {
+        v.fx.lastUpd = t;
+        const mid = (TAPE_DELAY_MIN + TAPE_DELAY_MAX) / 2;
+        const amp = (TAPE_DELAY_MAX - TAPE_DELAY_MIN) / 2;
+        v.fx.delay.delayTime.setTargetAtTime(mid + amp * Math.sin(t * v.fx.delRate + v.fx.delPhase), ta, 0.4);
+        const fbMid = (TAPE_FB_MIN + TAPE_FB_MAX) / 2;
+        const fbAmp = (TAPE_FB_MAX - TAPE_FB_MIN) / 2;
+        v.fx.fb.gain.setTargetAtTime(fbMid + fbAmp * Math.sin(t * 0.031 + v.fx.fbPhase), ta, 0.4);
+        v.fx.verbSend.gain.setTargetAtTime(0.65 + 0.35 * Math.sin(t * 0.024 + v.fx.vsPhase), ta, 0.4);
+        v.fx.dlyMix.gain.setTargetAtTime(v.dream ? S.amb2Delay : S.ambDelay, ta, 0.4);
+      }
+
+      // dream voices float on pure lissajous (see ambientVoicePos) — no steering jumps
+      if (!v.dream) {
+        // wandering drift across the field: larger blob = faster travel
+        v.ang += Math.sin(t * 0.11 + v.driftPhase) * 0.35 * dt;
+        const speed = v.baseR * 0.55;
+        v.ax += Math.cos(v.ang) * speed * dt;
+        v.ay += Math.sin(v.ang) * speed * dt;
+        // soft steer away from edges
+        const m = v.baseR;
+        if (v.ax < m) v.ang = 0 + (Math.random() - 0.5);
+        else if (v.ax > W - m) v.ang = Math.PI + (Math.random() - 0.5);
+        if (v.ay < m) v.ang = Math.PI / 2 + (Math.random() - 0.5);
+        else if (v.ay > H - m) v.ang = -Math.PI / 2 + (Math.random() - 0.5);
+      }
+    }
+
+    // dust rides with the daydream: swells with voice activity, silent when empty
+    if (amb2DustG) {
+      let act = 0;
+      for (const v of scenes.ambient2.items) act += v.env;
+      const target = scenes.ambient2.items.length && !muted
+        ? Math.min(1, S.amb2Dust + WX.dust) * 0.12 * (0.4 + Math.min(act, 1.2) * 0.5)
+        : 0;
+      amb2DustG.gain.setTargetAtTime(target, ta, 0.8);
+    }
+  }
+
+  function drawAmbient(key = 'ambient') {
+    const t = performance.now() / 1000;
+    // additive blending + overlapping wobbling lobes -> organic dissolving masses
+    ctx.globalCompositeOperation = 'lighter';
+    for (const v of scenes[key].items) {
+      const pos = ambientVoicePos(v, t);
+      const r = v.baseR * (0.9 + v.env * 0.8);
+      const a = (0.10 + v.env * 0.26) * 0.66;
+      v.lobes.forEach((lb, k) => {
+        const ox = Math.cos(t * lb.sp + lb.ph) * r * 0.35;
+        const oy = Math.sin(t * lb.sp * 1.3 + lb.ph * 2.1) * r * 0.35;
+        const lr = r * (1.1 + 0.35 * Math.sin(t * lb.sp * 0.8 + lb.ph + k)) * 1.6;
+        const grad = ctx.createRadialGradient(pos.x + ox, pos.y + oy, 0, pos.x + ox, pos.y + oy, lr);
+        grad.addColorStop(0, `hsla(${v.hue}, 65%, 55%, ${a})`);
+        grad.addColorStop(0.55, `hsla(${v.hue}, 65%, 55%, ${a * 0.4})`);
+        grad.addColorStop(1, `hsla(${v.hue}, 65%, 55%, 0)`);
+        ctx.beginPath();
+        ctx.arc(pos.x + ox, pos.y + oy, lr, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+      });
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  // ---------- DISINTEGRATION LOOPS (Basinski) ----------
+  // A fixed loop repeats forever. "Flakes" appear at specific spots on the
+  // loop and recur there every pass, widening and deepening - permanent scars.
+  // Tone dulls, level thins, until the loop dies and removes itself.
+
+  function spawnDisintLoop({ buffer }) {
+    const loopBuf = makeLoopableBuffer(buffer);
+    const src = audioCtx.createBufferSource();
+    src.buffer = loopBuf;
+    src.loop = true;
+    src.loopStart = 0;
+    src.loopEnd = loopBuf._loopEnd;
+    src.playbackRate.value = S.disSpeed;
+    const lfo = audioCtx.createOscillator();
+    lfo.frequency.value = 0.35 + Math.random() * 0.3;
+    const lfoG = audioCtx.createGain();
+    lfoG.gain.value = S.disSpeed * 0.004;
+    lfo.connect(lfoG).connect(src.playbackRate);
+    lfo.start();
+    const lp = audioCtx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 8000;
+    lp.Q.value = 0.4;
+    const dropG = audioCtx.createGain(); // flake ducking
+    const g = audioCtx.createGain();
+    g.gain.value = 0; // the loop drifts in over ~10s
+    src.connect(lp).connect(dropG).connect(g).connect(disintBus);
+    src.start();
+
+    scenes.disint.items.push({
+      buffer,
+      vol: 1,
+      loopDur: loopBuf._loopEnd,
+      bornAt: audioCtx.currentTime,
+      src, lfo, lfoG, lp, dropG, g,
+      hue: HUES[hueIdx++ % HUES.length],
+      wear: 0,
+      pos: 0,
+      angle: 0,
+      gaps: [],       // {a: angle on loop, w: width rad, depth}
+      dying: false,
+      dieAt: 0,
+    });
+  }
+
+  function killDisintLoop(v) {
+    try { v.src.stop(); v.lfo.stop(); } catch (e) {}
+    try {
+      v.src.disconnect(); v.lfo.disconnect(); v.lfoG.disconnect();
+      v.lp.disconnect(); v.dropG.disconnect(); v.g.disconnect();
+    } catch (e) {}
+  }
+
+  function gapDepthAt(v, ang) {
+    let depth = 0;
+    for (const gp of v.gaps) {
+      const d = Math.abs(((ang - gp.a) + Math.PI * 3) % (Math.PI * 2) - Math.PI);
+      if (d < gp.w / 2) depth = Math.max(depth, gp.depth);
+    }
+    return depth;
+  }
+
+  function stepDisint(dt) {
+    if (!audioCtx) return;
+    const ta = audioCtx.currentTime;
+    const sc = scenes.disint;
+    for (let i = sc.items.length - 1; i >= 0; i--) {
+      const v = sc.items[i];
+      v.src.playbackRate.value = S.disSpeed;
+      v.lfoG.gain.value = S.disSpeed * (0.004 + v.wear * 0.012); // wow deepens with age
+      v.pos += dt * S.disSpeed;
+      v.angle = (v.pos % v.loopDur) / v.loopDur * Math.PI * 2;
+
+      // pendant mode (Huerco S.): decay pauses, hypnotic multi-minute arcs instead
+      if (S.disPendant && !v.dying) {
+        const t2 = performance.now() / 1000;
+        const ph = v.bornAt * 7.3;
+        v.lp.frequency.setTargetAtTime(2500 + 4500 * (0.5 + 0.5 * Math.sin(t2 * 0.011 + ph)), ta, 0.5);
+        v.lfoG.gain.value = S.disSpeed * (0.004 + 0.01 * (0.5 + 0.5 * Math.sin(t2 * 0.017 + ph * 2)));
+        const duckP = 1 - gapDepthAt(v, v.angle);
+        v.dropG.gain.setTargetAtTime(duckP, ta, 0.015);
+        const fadeInP = Math.min(1, (ta - v.bornAt) / 10);
+        v.g.gain.setTargetAtTime(0.9 * (1 - v.wear * 0.75) * fadeInP * v.vol, ta, 0.3);
+        continue;
+      }
+
+      if (!v.dying) {
+        v.wear = Math.min(1, v.wear + dt / (S.disLife * 60));
+        // new flakes appear, more often as the tape ages
+        if (v.gaps.length < 120 && Math.random() < dt * (0.03 + v.wear * 0.6)) {
+          v.gaps.push({
+            a: Math.random() * Math.PI * 2,
+            w: 0.03 + Math.random() * 0.08,
+            depth: 0.25 + Math.random() * 0.35,
+          });
+          if (Math.random() < 0.15) logEvent('the tape lost another flake');
+        }
+        // every existing flake keeps wearing: wider, deeper. irreversible.
+        for (const gp of v.gaps) {
+          gp.w = Math.min(1.2, gp.w + dt * 0.002 * (1 + v.wear * 3));
+          gp.depth = Math.min(1, gp.depth + dt * 0.0035 * (1 + v.wear * 2));
+        }
+        if (v.wear >= 1) { v.dying = true; v.dieAt = performance.now() + 6000; }
+      }
+
+      // the sound ducks exactly where the tape is flaked
+      const duck = 1 - gapDepthAt(v, v.angle);
+      v.dropG.gain.setTargetAtTime(duck, ta, 0.015);
+      v.lp.frequency.setTargetAtTime(600 + 7400 * Math.pow(1 - v.wear, 2), ta, 0.3);
+      const fadeIn = Math.min(1, (ta - v.bornAt) / 10); // gradual first entrance
+      v.g.gain.setTargetAtTime(v.dying ? 0 : 0.9 * (1 - v.wear * 0.75) * fadeIn * v.vol, ta, v.dying ? 1.5 : 0.3);
+
+      if (v.dying && performance.now() > v.dieAt) {
+        killDisintLoop(v);
+        sc.items.splice(i, 1);
+        logEvent('a loop finished its life');
+        if (activeTab === 'disint') { updateCount(); updateHint(); }
+      }
+    }
+  }
+
+  function drawDisint() {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    const cx = W / 2, cy = H / 2;
+    scenes.disint.items.forEach((v, idx) => {
+      const R = Math.min(W, H) * (0.14 + idx * 0.055);
+      const SEG = 140;
+      ctx.lineWidth = 6;
+      ctx.lineCap = 'round';
+      for (let s = 0; s < SEG; s++) {
+        const a0 = s / SEG * Math.PI * 2;
+        const depth = gapDepthAt(v, a0);
+        if (depth > 0.85) continue; // flaked off entirely
+        const alpha = (0.7 - v.wear * 0.4) * (1 - depth * 0.8);
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, a0, a0 + (Math.PI * 2 / SEG) * 0.8);
+        ctx.strokeStyle = `hsla(${v.hue}, ${60 - v.wear * 35}%, ${55 - v.wear * 15}%, ${alpha})`;
+        ctx.stroke();
+      }
+      // playhead
+      const px = cx + Math.cos(v.angle) * R;
+      const py = cy + Math.sin(v.angle) * R;
+      ctx.beginPath();
+      ctx.arc(px, py, 5, 0, Math.PI * 2);
+      ctx.fillStyle = `hsl(${v.hue}, 70%, ${70 - v.wear * 25}%)`;
+      ctx.fill();
+    });
+  }
+
+  // ---------- RHYTHM machine (soft modular, generative but bounded) ----------
+  function euclid(k, n, rot) {
+    const p = [];
+    let bucket = 0;
+    for (let i = 0; i < n; i++) {
+      bucket += k;
+      if (bucket >= n) { bucket -= n; p.push(1); } else p.push(0);
+    }
+    return p.map((_, i) => p[(i - rot + n * 2) % n]);
+  }
+
+  // cut a slice, apply soft attack + exp decay, normalize gently
+  function makeSlice(buffer, startSample, lenSamples) {
+    const rate = buffer.sampleRate;
+    const len = Math.max(Math.floor(rate * 0.03), Math.min(lenSamples, buffer.length - startSample));
+    const out = audioCtx.createBuffer(buffer.numberOfChannels, len, rate);
+    const att = Math.floor(rate * 0.004);
+    let peak = 0;
+    for (let c = 0; c < buffer.numberOfChannels; c++) {
+      const src = buffer.getChannelData(c);
+      const dst = out.getChannelData(c);
+      for (let i = 0; i < len; i++) {
+        const env = Math.min(1, i / att) * Math.pow(1 - i / len, 1.6);
+        dst[i] = src[startSample + i] * env;
+        peak = Math.max(peak, Math.abs(dst[i]));
+      }
+    }
+    if (peak > 0.001) {
+      const norm = 0.85 / peak;
+      for (let c = 0; c < buffer.numberOfChannels; c++) {
+        const dst = out.getChannelData(c);
+        for (let i = 0; i < len; i++) dst[i] *= norm;
+      }
+    }
+    return out;
+  }
+
+  // one recording -> 3-piece kit: loudest bit (kick), brightest (hat), mid (snare)
+  function analyzeKit(buffer) {
+    const rate = buffer.sampleRate;
+    const data = buffer.getChannelData(0);
+    if (buffer.duration < 0.3) {
+      // short tap: same slice at three speeds
+      const whole = buffer.length;
+      return [
+        { buf: makeSlice(buffer, 0, whole), rate: 0.6 },
+        { buf: makeSlice(buffer, 0, whole), rate: 1 },
+        { buf: makeSlice(buffer, 0, whole), rate: 1.7 },
+      ];
+    }
+    const win = 1024, hop = 512;
+    const frames = [];
+    for (let s = 0; s + win < data.length; s += hop) {
+      let e = 0, zc = 0;
+      for (let i = 0; i < win; i++) {
+        e += data[s + i] * data[s + i];
+        if (i && (data[s + i] >= 0) !== (data[s + i - 1] >= 0)) zc++;
+      }
+      frames.push({ s, e, zc });
+    }
+    const maxE = Math.max(...frames.map(f => f.e)) || 1;
+    const kickF = frames.reduce((a, b) => (b.e > a.e ? b : a));
+    const hatF = frames.reduce((a, b) =>
+      ((b.zc * Math.pow(b.e / maxE, 0.3)) > (a.zc * Math.pow(a.e / maxE, 0.3)) && b.e > maxE * 0.05 ? b : a));
+    const guard = rate * 0.1;
+    const snareCand = frames.filter(f => Math.abs(f.s - kickF.s) > guard);
+    const snareF = snareCand.length
+      ? snareCand.reduce((a, b) => (b.e > a.e ? b : a))
+      : kickF;
+    const at = f => Math.max(0, f.s - Math.floor(rate * 0.005));
+    return [
+      { buf: makeSlice(buffer, at(kickF), Math.floor(rate * 0.2)), rate: 1 },
+      { buf: makeSlice(buffer, at(snareF), Math.floor(rate * 0.15)), rate: 1 },
+      { buf: makeSlice(buffer, at(hatF), Math.floor(rate * 0.08)), rate: 1 },
+    ];
+  }
+
+  function spawnRhythmKit({ buffer }) {
+    const slices = analyzeKit(buffer);
+    const mkVoice = (sliceIdx, len, k, rot) => ({
+      sliceIdx, len,
+      base: euclid(k, len, rot),
+      pattern: euclid(k, len, rot),
+      step: 0,
+    });
+    scenes.rhythm.items.push({
+      buffer,
+      vol: 1,
+      slices,
+      hue: HUES[hueIdx++ % HUES.length],
+      voices: [
+        mkVoice(0, 16, 3 + Math.floor(Math.random() * 3), 0),                       // kick
+        mkVoice(1, 16, 2 + Math.floor(Math.random() * 2), 4),                       // snare
+        mkVoice(2, Math.random() < 0.4 ? 12 : 16, 5 + Math.floor(Math.random() * 4), Math.floor(Math.random() * 4)), // hat
+      ],
+    });
+  }
+
+  // bounded mutation: flips drift the pattern, healing pulls it home. never chaos.
+  function mutateVoice(v, isKick) {
+    if (Math.random() < S.rhyMut * WX.mut) {
+      const i = 1 + Math.floor(Math.random() * (v.len - 1)); // step 0 is sacred on every voice
+      if (!(isKick && i === 0)) v.pattern[i] = 1 - v.pattern[i];
+    }
+    const diffs = [];
+    for (let i = 0; i < v.len; i++) if (v.pattern[i] !== v.base[i]) diffs.push(i);
+    if (diffs.length > 3 || (diffs.length && Math.random() < 0.25)) {
+      const i = diffs[Math.floor(Math.random() * diffs.length)];
+      v.pattern[i] = v.base[i]; // heal back toward the original groove
+    }
+  }
+
+  function rhythmKitCenter(idx, count) {
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    return { x: W * (idx + 1) / (count + 1), y: H / 2 };
+  }
+
+  function playSlice(kit, voice, when, vel) {
+    if (muted) return;
+    noteSoundStart();
+    const slice = kit.slices[voice.sliceIdx];
+    const src = audioCtx.createBufferSource();
+    src.buffer = slice.buf;
+    src.playbackRate.value = slice.rate
+      * (voice.sliceIdx === 0 && Math.random() < 0.12 ? 0.5 : 1)  // soft half-pitch thump
+      * Math.pow(2, (Math.random() * 20 - 10) / 1200);
+    const g = audioCtx.createGain();
+    g.gain.value = vel * kit.vol;
+    src.connect(g).connect(rhythmBus);
+    src.start(when);
+  }
+
+  let rhyNext = 0;
+  let rhyGlobalStep = 0;
+
+  function stepRhythm(dt) {
+    const items = scenes.rhythm.items;
+    if (!audioCtx || !items.length) { rhyNext = 0; return; }
+    const ta = audioCtx.currentTime;
+    if (!rhyNext || rhyNext < ta - 0.5) rhyNext = ta + 0.05;
+    while (rhyNext < ta + 0.15) {
+      const stepDur = 60 / S.rhyBpm / 4;
+      const swingOff = (rhyGlobalStep % 2 === 1) ? (S.rhySwing - 0.5) * stepDur * 2 : 0;
+      items.forEach((kit, ki) => {
+        kit.voices.forEach((v, vi) => {
+          const idx = v.step % v.len;
+          const hit = v.pattern[idx] === 1;
+          const when = rhyNext + swingOff + (Math.random() - 0.5) * 0.008;
+          let vel = 0;
+          if (hit && Math.random() < Math.min(1, S.rhyDensity)) {
+            vel = (vi === 0 ? 0.85 : vi === 1 ? 0.7 : 0.5) * (0.85 + Math.random() * 0.3);
+          } else if (!hit && Math.random() < 0.04 * S.rhyDensity + Math.max(0, S.rhyDensity - 1) * 0.12) {
+            vel = 0.15 + Math.random() * 0.08; // ghost note
+          }
+          if (vel > 0) {
+            playSlice(kit, v, when, vel);
+            const c = rhythmKitCenter(ki, items.length);
+            const R = Math.min(canvas.clientWidth, canvas.clientHeight) * (0.09 + vi * 0.045);
+            const a = idx / v.len * Math.PI * 2 - Math.PI / 2;
+            scenes.rhythm.ripples.push({
+              x: c.x + Math.cos(a) * R, y: c.y + Math.sin(a) * R,
+              r: 4, maxR: 6 + vel * 22, a: 0.35 + vel * 0.4, hue: kit.hue,
+            });
+          }
+          v.step++;
+          if (v.step % v.len === 0) mutateVoice(v, vi === 0);
+        });
+      });
+      rhyGlobalStep++;
+      rhyNext += stepDur;
+    }
+    // warmth filter follows the knob with a slow organic wobble
+    if (rhyLp) {
+      const t = performance.now() / 1000;
+      const target = (8500 - S.rhyWarm * 6000) * (1 + 0.08 * Math.sin(t * 0.05));
+      rhyLp.frequency.setTargetAtTime(target, ta, 0.5);
+    }
+  }
+
+  function drawRhythm() {
+    const items = scenes.rhythm.items;
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    items.forEach((kit, ki) => {
+      const c = rhythmKitCenter(ki, items.length);
+      kit.voices.forEach((v, vi) => {
+        const R = Math.min(W, H) * (0.09 + vi * 0.045);
+        const cur = v.step % v.len;
+        for (let i = 0; i < v.len; i++) {
+          const a = i / v.len * Math.PI * 2 - Math.PI / 2;
+          const x = c.x + Math.cos(a) * R;
+          const y = c.y + Math.sin(a) * R;
+          const on = v.pattern[i] === 1;
+          const isCur = i === cur;
+          ctx.beginPath();
+          ctx.arc(x, y, on ? (isCur ? 5.5 : 4) : 2, 0, Math.PI * 2);
+          ctx.fillStyle = `hsla(${kit.hue}, ${on ? 70 : 30}%, ${on ? (isCur ? 72 : 55) : 42}%, ${on ? 0.9 : 0.35})`;
+          ctx.fill();
+        }
+      });
+    });
+  }
+
+  // ---------- DAYDREAM visuals (single-pass WebGL: gradient blobs -> turbulent
+  // displace -> lens warp -> glow; half-res render = free box blur) ----------
+  const DREAM_LENS = 0.55;  // barrel warp amount (CC Lens)
+  const DREAM_GLOW = 0.45;  // glow lift
+  let glCanvas = null, gl = null, glProg = null, glLoc = null;
+
+  function hueToRgb(h) {
+    const f = n => {
+      const k = (n + h / 30) % 12;
+      return 0.55 - 0.38 * Math.max(-1, Math.min(1, Math.min(k - 3, 9 - k)));
+    };
+    return [f(0), f(8), f(4)];
+  }
+
+  function initDreamGL() {
+    if (gl !== null) return gl;
+    glCanvas = document.getElementById('glstage');
+    gl = glCanvas.getContext('webgl', { alpha: true, premultipliedAlpha: false }) || false;
+    if (!gl) return gl;
+    const vs = `attribute vec2 aP; void main(){ gl_Position = vec4(aP, 0., 1.); }`;
+    const fs = `precision mediump float;
+uniform vec2 uRes; uniform float uTime; uniform int uCount;
+uniform vec4 uBlob[8]; uniform vec3 uCol[8];
+uniform float uLens; uniform float uGlow;
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p){
+  vec2 i = floor(p), f = fract(p);
+  f = f * f * (3. - 2. * f);
+  return mix(mix(hash(i), hash(i + vec2(1., 0.)), f.x),
+             mix(hash(i + vec2(0., 1.)), hash(i + vec2(1., 1.)), f.x), f.y);
+}
+float fbm(vec2 p){
+  float v = 0., a = .5;
+  for (int i = 0; i < 3; i++){ v += a * noise(p); p *= 2.13; a *= .5; }
+  return v;
+}
+void main(){
+  vec2 uv = gl_FragCoord.xy / uRes;
+  vec2 cc = uv - .5;
+  cc.x *= uRes.x / uRes.y;
+  float r2 = dot(cc, cc);
+  vec2 luv = .5 + (uv - .5) * (1. + uLens * r2); // lens: center bulges
+  vec2 px = luv * uRes;
+  // global molten flow: one big, slow domain warp shared by everything (lava, not wiggle)
+  vec2 flow = vec2(
+    fbm(px * .0018 + uTime * .016),
+    fbm(px * .0018 - uTime * .013 + 41.7)
+  ) - .5;
+  px += flow * 130.;
+  vec3 col = vec3(0.);
+  float field = 0.;
+  for (int i = 0; i < 8; i++){
+    if (i < uCount){
+      vec2 bp = uBlob[i].xy;
+      float rad = uBlob[i].z;
+      float env = uBlob[i].w;
+      // per-blob turbulence: lower frequency, slower = smooth folding
+      vec2 q = px + vec2(
+        fbm(px * .0035 + uTime * .025 + float(i) * 7.31) - .5,
+        fbm(px * .0035 - uTime * .021 + float(i) * 3.77) - .5
+      ) * rad * 1.25;
+      float d = length(q - bp) / rad;
+      // visible floor: even a silent blob keeps .55 presence
+      float f = smoothstep(1.3, .12, d) * (.55 + .45 * env);
+      // gradient fill: bright warm core -> deep edge
+      vec3 g = mix(uCol[i] * 1.45, uCol[i] * .45, clamp(d, 0., 1.));
+      col += g * f;
+      field += f;
+    }
+  }
+  col += col * uGlow * smoothstep(.5, 1.8, field);       // glow
+  col *= 1. - .3 * smoothstep(.35, .95, r2 * 2.2);       // soft lens-edge falloff
+  gl_FragColor = vec4(col, clamp(field * 1.2, 0., 1.));
+}`;
+    function sh(type, src) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      return s;
+    }
+    glProg = gl.createProgram();
+    gl.attachShader(glProg, sh(gl.VERTEX_SHADER, vs));
+    gl.attachShader(glProg, sh(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(glProg);
+    if (!gl.getProgramParameter(glProg, gl.LINK_STATUS)) { gl = false; return gl; }
+    gl.useProgram(glProg);
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const aP = gl.getAttribLocation(glProg, 'aP');
+    gl.enableVertexAttribArray(aP);
+    gl.vertexAttribPointer(aP, 2, gl.FLOAT, false, 0, 0);
+    glLoc = {
+      res: gl.getUniformLocation(glProg, 'uRes'),
+      time: gl.getUniformLocation(glProg, 'uTime'),
+      count: gl.getUniformLocation(glProg, 'uCount'),
+      blob: gl.getUniformLocation(glProg, 'uBlob'),
+      col: gl.getUniformLocation(glProg, 'uCol'),
+      lens: gl.getUniformLocation(glProg, 'uLens'),
+      glow: gl.getUniformLocation(glProg, 'uGlow'),
+    };
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    return gl;
+  }
+
+  function renderDream() {
+    if (initDreamGL() === false) { drawAmbient('ambient2'); return; } // fallback: 2d lobes
+    const t = performance.now() / 1000;
+    // half-res backing store = cheap + naturally soft
+    const w = Math.floor(glCanvas.clientWidth * GL_SCALE);
+    const h = Math.floor(glCanvas.clientHeight * GL_SCALE);
+    if (glCanvas.width !== w || glCanvas.height !== h) {
+      glCanvas.width = w;
+      glCanvas.height = h;
+      gl.viewport(0, 0, w, h);
+    }
+    const scale = w / canvas.clientWidth;
+    const items = scenes.ambient2.items.slice(0, 8);
+    const blob = new Float32Array(32);
+    const col = new Float32Array(24);
+    items.forEach((v, i) => {
+      const pos = ambientVoicePos(v, t);
+      blob[i * 4] = pos.x * scale;
+      blob[i * 4 + 1] = h - pos.y * scale; // gl y-flip
+      // slow breathing + eased envelope; floor at 0.75x so blobs never vanish
+      const breath = 0.95 + 0.25 * Math.sin(t * 0.09 + v.driftPhase * 2.1);
+      blob[i * 4 + 2] = v.baseR * (breath + v.envSmooth * 0.55) * scale * 1.7;
+      blob[i * 4 + 3] = v.envSmooth;
+      const rgb = hueToRgb(v.hue);
+      col.set(rgb, i * 3);
+    });
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.uniform2f(glLoc.res, w, h);
+    gl.uniform1f(glLoc.time, t);
+    gl.uniform1i(glLoc.count, items.length);
+    gl.uniform4fv(glLoc.blob, blob);
+    gl.uniform3fv(glLoc.col, col);
+    gl.uniform1f(glLoc.lens, DREAM_LENS);
+    gl.uniform1f(glLoc.glow, DREAM_GLOW);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  // ---------- THE WORLD: time of day + weather, breathing through every engine ----------
+  const WEATHERS = {
+    clear:    { dens: 1,    dust: 0,    wow: 1,    haze: 0,    mut: 1 },
+    breeze:   { dens: 1.1,  dust: 0.08, wow: 1.25, haze: 0.03, mut: 1.1 },
+    overcast: { dens: 0.85, dust: 0.15, wow: 1.1,  haze: 0.12, mut: 0.8 },
+    rain:     { dens: 1.25, dust: 0.3,  wow: 1.4,  haze: 0.18, mut: 1.3 },
+  };
+  const WEATHER_LINES = {
+    clear: 'the sky clears',
+    breeze: 'a light wind picks up',
+    overcast: 'clouds gather low',
+    rain: 'a front of rain moves in',
+  };
+  const DAY_SEGMENTS = [
+    [5, 'dawn', 'the sun rises somewhere'],
+    [7, 'morning', 'morning settles over everything'],
+    [11, 'noon', 'high noon, shadows shortest'],
+    [13, 'afternoon', 'the afternoon stretches out'],
+    [17, 'dusk', 'the light is getting long'],
+    [19, 'evening', 'evening comes quietly'],
+    [22, 'night', 'night settles in'],
+  ];
+
+  const WORLD = {
+    dayLen: 3600,                       // one full day = 1 hour of listening
+    phase: Math.random(),               // wake up at a random time of day
+    weather: 'clear',
+    prevWeather: 'clear',
+    weatherStart: 0,
+    nextWeatherAt: performance.now() / 1000 + 120 + Math.random() * 240,
+    segment: '',
+  };
+  // live modifiers every engine reads (WX to avoid clashing with local W=width vars)
+  const WX = { dens: 1, dust: 0, wow: 1, hazeAdd: 0, mut: 1, night: 0 };
+
+  let lastLogAt = 0;
+  function logEvent(text) {
+    const now = performance.now() / 1000;
+    if (now - lastLogAt < 4) return;
+    lastLogAt = now;
+    const box = document.getElementById('eventlog');
+    const line = document.createElement('div');
+    line.className = 'evline';
+    line.textContent = text;
+    box.appendChild(line);
+    while (box.children.length > 5) box.removeChild(box.firstChild);
+    [...box.children].forEach((el, i) => {
+      el.style.opacity = 0.25 + 0.75 * ((i + 1) / box.children.length);
+    });
+    setTimeout(() => { line.style.opacity = 0; }, 45000);
+    setTimeout(() => { if (line.parentNode) line.parentNode.removeChild(line); }, 60000);
+  }
+
+  function daySegment(hour) {
+    let seg = DAY_SEGMENTS[DAY_SEGMENTS.length - 1];
+    for (const s of DAY_SEGMENTS) if (hour >= s[0]) seg = s;
+    if (hour < DAY_SEGMENTS[0][0]) seg = DAY_SEGMENTS[DAY_SEGMENTS.length - 1];
+    return seg;
+  }
+
+  function stepWorld(dt) {
+    const t = performance.now() / 1000;
+    WORLD.phase = (WORLD.phase + dt / WORLD.dayLen) % 1;
+    const hour = WORLD.phase * 24;
+    const dayness = 0.5 - 0.5 * Math.cos(WORLD.phase * Math.PI * 2);
+
+    // weather fronts pass every 2-6 minutes, crossfading over ~30s
+    if (t >= WORLD.nextWeatherAt) {
+      const options = Object.keys(WEATHERS).filter(w => w !== WORLD.weather);
+      WORLD.prevWeather = WORLD.weather;
+      WORLD.weather = options[Math.floor(Math.random() * options.length)];
+      WORLD.weatherStart = t;
+      WORLD.nextWeatherAt = t + 120 + Math.random() * 240;
+      logEvent(WEATHER_LINES[WORLD.weather]);
+    }
+    const mix = Math.min(1, (t - WORLD.weatherStart) / 30);
+    const a = WEATHERS[WORLD.prevWeather], b = WEATHERS[WORLD.weather];
+    const lerp = (x, y) => x + (y - x) * mix;
+    WX.dens = lerp(a.dens, b.dens);
+    WX.dust = lerp(a.dust, b.dust);
+    WX.wow = lerp(a.wow, b.wow);
+    WX.mut = lerp(a.mut, b.mut);
+    WX.night = 1 - dayness;
+    WX.hazeAdd = lerp(a.haze, b.haze) + WX.night * 0.12;
+
+    const seg = daySegment(hour);
+    if (seg[1] !== WORLD.segment) {
+      WORLD.segment = seg[1];
+      logEvent(seg[2]);
+    }
+    document.getElementById('world').textContent = `${seg[1]} · ${WORLD.weather}`;
+
+    // field recordings follow the weather
+    if (audioCtx && fieldMaster) {
+      fieldMaster.gain.setTargetAtTime(S.field * 0.35, audioCtx.currentTime, 0.5);
+      const bedAge = fieldBed ? performance.now() / 1000 - fieldBed.bornAt : 0;
+      if (S.field > 0.02 && !fieldLoading &&
+          (!fieldBed || fieldWeather !== WORLD.weather || bedAge > 210)) {
+        loadFieldBed(WORLD.weather); // long loops rotate every ~3.5 min even in steady weather
+      }
+    }
+  }
+
+  // ---------- field recordings: radio aporee (mirrored on archive.org) ----------
+  const FIELD_TERMS = {
+    clear: 'birds morning',
+    breeze: 'wind trees',
+    overcast: 'distant ambience',
+    rain: 'rain',
+  };
+
+  async function fetchFieldFor(weather) {
+    try {
+      const q = encodeURIComponent(`collection:radio-aporee-maps AND (${FIELD_TERMS[weather]})`);
+      const url = `https://archive.org/advancedsearch.php?q=${q}&fl[]=identifier&fl[]=title&rows=100&output=json`;
+      const js = await (await fetch(url)).json();
+      const docs = js.response.docs;
+      if (!docs || !docs.length) return null;
+      const pick = docs[Math.floor(Math.random() * docs.length)];
+      const meta = await (await fetch(`https://archive.org/metadata/${pick.identifier}`)).json();
+      const f = (meta.files || []).find(x => /\.mp3$/i.test(x.name)) || (meta.files || []).find(x => /\.ogg$/i.test(x.name));
+      if (!f) return null;
+      const audioUrl = `https://archive.org/download/${pick.identifier}/${encodeURIComponent(f.name)}`;
+      const arr = await (await fetch(audioUrl)).arrayBuffer();
+      const decoded = await audioCtx.decodeAudioData(arr);
+      return { decoded, title: String(pick.title || pick.identifier) };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function loadFieldBed(weather) {
+    fieldLoading = true;
+    fieldWeather = weather;
+    const r = await fetchFieldFor(weather);
+    fieldLoading = false;
+    if (!r || !audioCtx) return;
+    if (fieldWeather !== WORLD.weather) return; // weather moved on while downloading
+    // cap at 90s, make seamless, fade the old bed away
+    let buf = r.decoded;
+    if (buf.duration > 90) {
+      const rate = buf.sampleRate;
+      const short = audioCtx.createBuffer(buf.numberOfChannels, rate * 90, rate);
+      for (let c = 0; c < buf.numberOfChannels; c++) {
+        short.copyToChannel(buf.getChannelData(c).subarray(0, rate * 90), c);
+      }
+      buf = short;
+    }
+    // level-match: field recordings vary wildly, normalize to a gentle bed level
+    let sum = 0;
+    const d0 = buf.getChannelData(0);
+    for (let i = 0; i < d0.length; i += 8) sum += d0[i] * d0[i];
+    const rms = Math.sqrt(sum / (d0.length / 8)) || 0.01;
+    const level = Math.max(0.2, Math.min(6, 0.13 / rms));
+
+    const loopBuf = makeLoopableBuffer(buf, 3); // 3s loop-seam crossfade: no audible wrap
+    const ta = audioCtx.currentTime;
+    if (fieldBed) {
+      const old = fieldBed;
+      old.g.gain.setTargetAtTime(0, ta, 12); // old place recedes over ~30s
+      setTimeout(() => { try { old.src.stop(); old.src.disconnect(); old.g.disconnect(); } catch (e) {} }, 50000);
+    }
+    const src = audioCtx.createBufferSource();
+    src.buffer = loopBuf;
+    src.loop = true;
+    src.loopStart = 0;
+    src.loopEnd = loopBuf._loopEnd;
+    const g = audioCtx.createGain();
+    g.gain.value = 0;
+    g.gain.setTargetAtTime(level, ta, 14); // new place arrives over ~40s, overlapping the old
+    src.connect(g).connect(fieldMaster);
+    src.start();
+    fieldBed = { src, g, bornAt: performance.now() / 1000 };
+    logEvent('somewhere: ' + r.title.toLowerCase().slice(0, 52));
+  }
+
+  // ---------- global fx: haze veil, heartbeat + sidechain breathing ----------
+  let hbNext = 0;
+  let hazePhase = 0;
+  let hazeHalf = 120 + (Math.random() * 60 - 30); // one veil swing: ~2min +/- 30s
+
+  function thump(when, lvl) {
+    if (muted) return;
+    noteSoundStart();
+    const o = audioCtx.createOscillator();
+    o.frequency.setValueAtTime(82, when);
+    o.frequency.exponentialRampToValueAtTime(46, when + 0.07);
+    const g = audioCtx.createGain();
+    g.gain.setValueAtTime(0, when);
+    g.gain.linearRampToValueAtTime(0.5 * lvl, when + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.001, when + 0.22);
+    const lp = audioCtx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 120;
+    o.connect(g).connect(lp).connect(masterGain);
+    o.start(when);
+    o.stop(when + 0.3);
+  }
+
+  function stepGlobalFx(dt) {
+    if (!audioCtx) return;
+    const ta = audioCtx.currentTime;
+    // haze: the veil drifts open and shut veeery slowly - each swing ~2min (+/-30s)
+    const prevPhase = hazePhase;
+    hazePhase += dt * Math.PI / hazeHalf;
+    if (hazePhase >= Math.PI * 2) hazePhase -= Math.PI * 2;
+    // new pace for each half-swing (rise and fall get their own duration)
+    if ((prevPhase < Math.PI) !== (hazePhase < Math.PI)) {
+      hazeHalf = 120 + (Math.random() * 60 - 30);
+      if (S.haze > 0.15) logEvent(hazePhase < Math.PI ? 'the veil is opening' : 'the veil settles back');
+    }
+    const open = (1 - Math.cos(hazePhase)) / 2; // eased 0 -> 1 -> 0
+    const amt = Math.min(1, S.haze * (1 - 0.7 * open) + WX.hazeAdd);
+    hazeLP.frequency.setTargetAtTime(18000 * Math.pow(600 / 18000, amt), ta, 0.4);
+    hazeVerbSend.gain.setTargetAtTime(amt * 0.5, ta, 0.4);
+    hazeOut.gain.setTargetAtTime(1 - amt * 0.22, ta, 0.4);
+
+    // heartbeat: felt not heard; ambient family ducks ~10% around each beat
+    if (S.hbLevel > 0) {
+      const beat = 60 / S.rhyBpm;
+      if (!hbNext || hbNext < ta - 0.5) hbNext = ta + 0.1;
+      while (hbNext < ta + 0.15) {
+        thump(hbNext, S.hbLevel);
+        scBus.gain.setTargetAtTime(1 - 0.12 * S.hbLevel, hbNext, 0.03);
+        scBus.gain.setTargetAtTime(1, hbNext + 0.1, 0.15);
+        hbNext += beat;
+      }
+    } else {
+      hbNext = 0;
+    }
+  }
+
+  // ---------- shared loop ----------
+  function stepRipples(sc, dt) {
+    for (let i = sc.ripples.length - 1; i >= 0; i--) {
+      const rp = sc.ripples[i];
+      rp.r += (rp.maxR - rp.r) * dt * 6;
+      rp.a -= dt * 1.4;
+      if (rp.a <= 0) sc.ripples.splice(i, 1);
+    }
+  }
+
+  function drawRipples(sc) {
+    for (const rp of sc.ripples) {
+      ctx.beginPath();
+      ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
+      ctx.strokeStyle = `hsla(${rp.hue}, 85%, 65%, ${rp.a})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = canvas.clientWidth * dpr;
+    canvas.height = canvas.clientHeight * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  window.addEventListener('resize', resize);
+
+  // simulation runs on a timer so sound continues when the page is hidden
+  // (rAF pauses in background browser tabs; setInterval keeps ticking)
+  let lastStep = performance.now();
+  function tick() {
+    const now = performance.now();
+    let remaining = Math.min((now - lastStep) / 1000, 2); // catch up at most 2s
+    lastStep = now;
+    while (remaining > 0) {
+      const dt = Math.min(remaining, 0.033);
+      // scenes with nothing in them cost nothing (big win on phones)
+      if (scenes.balls.items.length) stepBalls(dt);
+      if (scenes.pendulum.items.length) stepPendulums(dt);
+      if (scenes.shape.items.length) stepShape(dt);
+      if (scenes.ambient.items.length || scenes.ambient2.items.length) stepAmbient(dt);
+      if (scenes.disint.items.length) stepDisint(dt);
+      if (scenes.rhythm.items.length) stepRhythm(dt);
+      stepWorld(dt);
+      stepGlobalFx(dt);
+      for (const k in scenes) if (scenes[k].ripples.length) stepRipples(scenes[k], dt);
+      remaining -= dt;
+    }
+  }
+  setInterval(tick, 33);
+
+  let lastDraw = 0;
+  function loop(now) {
+    requestAnimationFrame(loop);
+    // frame limiter: 30fps on phones halves GPU/CPU work
+    if (now - lastDraw < 1000 / DRAW_FPS - 1) return;
+    lastDraw = now || 0;
+    // don't render at all while the page is hidden (audio keeps running)
+    if (document.hidden) return;
+
+    const W = canvas.clientWidth, H = canvas.clientHeight;
+    const sc = scenes[activeTab];
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = '#2a2f3a';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, W - 2, H - 2);
+    drawRipples(sc);
+    const glEl = document.getElementById('glstage');
+    glEl.style.display = activeTab === 'ambient2' ? 'block' : 'none';
+    if (activeTab === 'balls') drawBalls();
+    else if (activeTab === 'pendulum') drawPendulums();
+    else if (activeTab === 'shape') drawShape();
+    else if (activeTab === 'ambient') drawAmbient('ambient');
+    else if (activeTab === 'disint') drawDisint();
+    else if (activeTab === 'rhythm') drawRhythm();
+    else renderDream();
+  }
+
+  // ---------- input ----------
+  canvas.addEventListener('pointerdown', e => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const sc = scenes[activeTab];
+    const t = performance.now() / 1000;
+
+    // pendulum mute toggles (right side) take priority
+    if (activeTab === 'pendulum') {
+      for (let i = 0; i < sc.items.length; i++) {
+        const tp = pendulumTogglePos(i);
+        if (Math.hypot(x - tp.x, y - tp.y) <= tp.r + 6) {
+          sc.items[i].muted = !sc.items[i].muted;
+          return;
+        }
+      }
+    }
+    const sv = activeTab === 'shape' ? shapeView(t) : null;
+    for (let i = sc.items.length - 1; i >= 0; i--) {
+      const it = sc.items[i];
+      let hx, hy, hr;
+      if (activeTab === 'balls') { hx = it.x; hy = it.y; hr = it.r; }
+      else if (activeTab === 'pendulum') {
+        const pos = pendulumBobPos(it, it.theta);
+        hx = pos.x; hy = pos.y; hr = it.bobR;
+      } else if (activeTab === 'rhythm') {
+        const c = rhythmKitCenter(i, sc.items.length);
+        const maxR = Math.min(canvas.clientWidth, canvas.clientHeight) * (0.09 + 2 * 0.045);
+        if (Math.hypot(x - c.x, y - c.y) <= maxR + 12) {
+          sc.items.splice(i, 1);
+          updateCount();
+          updateHint();
+          break;
+        }
+        continue;
+      } else if (activeTab === 'disint') {
+        // ring hit: tap anywhere on the loop's circle
+        const R = Math.min(canvas.clientWidth, canvas.clientHeight) * (0.14 + i * 0.055);
+        const dist = Math.hypot(x - canvas.clientWidth / 2, y - canvas.clientHeight / 2);
+        if (Math.abs(dist - R) <= 15) {
+          killDisintLoop(it);
+          sc.items.splice(i, 1);
+          updateCount();
+          updateHint();
+          break;
+        }
+        continue;
+      } else if (activeTab === 'shape') {
+        const pos = shapeDotPos(it, sv);
+        hx = pos.x; hy = pos.y; hr = it.dotR * pos.persp;
+      } else {
+        const pos = ambientVoicePos(it, t);
+        hx = pos.x; hy = pos.y; hr = it.baseR;
+      }
+      if (Math.hypot(x - hx, y - hy) <= hr) {
+        if (activeTab.startsWith('ambient')) killVoice(it);
+        sc.items.splice(i, 1);
+        sc.ripples.push({ x: hx, y: hy, r: hr * 0.4, maxR: hr * 1.8, a: 0.8, hue: it.hue });
+        updateCount();
+        updateHint();
+        break;
+      }
+    }
+  });
+
+  recBtn.addEventListener('pointerdown', e => { e.preventDefault(); startRecording(); });
+  window.addEventListener('pointerup', stopRecording);
+  window.addEventListener('pointercancel', stopRecording);
+
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Space' && !e.repeat) { e.preventDefault(); startRecording(); }
+  });
+  window.addEventListener('keyup', e => {
+    if (e.code === 'Space') { e.preventDefault(); stopRecording(); }
+  });
+
+  document.querySelectorAll('.tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeTab = btn.dataset.tab;
+      document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b === btn));
+      updateCount();
+      updateHint();
+      renderKnobs();
+    });
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    if (activeTab.startsWith('ambient')) scenes[activeTab].items.forEach(killVoice);
+    if (activeTab === 'disint') scenes.disint.items.forEach(killDisintLoop);
+    scenes[activeTab].items.length = 0;
+    scenes[activeTab].ripples.length = 0;
+    updateCount();
+    updateHint();
+  });
+
+  document.getElementById('muteBtn').addEventListener('click', function () {
+    muted = !muted;
+    this.textContent = muted ? 'Unmute' : 'Mute';
+  });
+
+  document.getElementById('sessionBtn').addEventListener('click', toggleSessionRecording);
+
+  function stopFreezeBed() {
+    if (!fzBed) return;
+    const ta = audioCtx.currentTime;
+    const bed = fzBed;
+    fzBed = null;
+    bed.g.gain.setTargetAtTime(0, ta, 0.6);
+    setTimeout(() => {
+      try { bed.src.stop(); bed.lfo.stop(); } catch (e) {}
+      try { bed.src.disconnect(); bed.g.disconnect(); bed.lp.disconnect(); } catch (e) {}
+    }, 3000);
+  }
+
+  document.getElementById('freezeBtn').addEventListener('click', function () {
+    ensureAudio();
+    frozen = !frozen;
+    this.classList.toggle('fx-on', frozen);
+    logEvent(frozen ? 'this moment is being frozen' : 'the frozen moment dissolves');
+    if (frozen) {
+      // capture the next ~3 seconds of the mix, then loop it quietly as a bed
+      this.textContent = 'Freezing…';
+      const chunks2 = [];
+      const mime = bestMime();
+      fzRec = new MediaRecorder(fzDest.stream, mime ? { mimeType: mime } : undefined);
+      fzRec.ondataavailable = e => { if (e.data.size) chunks2.push(e.data); };
+      fzRec.onstop = async () => {
+        document.getElementById('freezeBtn').textContent = 'Freeze';
+        if (!frozen) return; // cancelled while capturing
+        try {
+          const arr = await new Blob(chunks2, { type: fzRec.mimeType }).arrayBuffer();
+          const decoded = await audioCtx.decodeAudioData(arr);
+          const loopBuf = makeLoopableBuffer(decoded);
+          const src = audioCtx.createBufferSource();
+          src.buffer = loopBuf;
+          src.loop = true;
+          src.loopStart = 0;
+          src.loopEnd = loopBuf._loopEnd;
+          const lfo = audioCtx.createOscillator();
+          lfo.frequency.value = 0.3;
+          const lfoG = audioCtx.createGain();
+          lfoG.gain.value = 0.004; // gentle wow on the frozen moment
+          lfo.connect(lfoG).connect(src.playbackRate);
+          lfo.start();
+          const lp = audioCtx.createBiquadFilter();
+          lp.type = 'lowpass';
+          lp.frequency.value = 3200;
+          const g = audioCtx.createGain();
+          g.gain.value = 0;
+          const ta = audioCtx.currentTime;
+          g.gain.setTargetAtTime(0.35, ta, 1.2); // bed drifts in, capped low
+          src.connect(lp).connect(g).connect(hazeLP);
+          src.start();
+          fzBed = { src, g, lp, lfo };
+        } catch (e) {
+          frozen = false;
+          document.getElementById('freezeBtn').classList.remove('fx-on');
+        }
+      };
+      fzRec.start();
+      setTimeout(() => { if (fzRec && fzRec.state !== 'inactive') fzRec.stop(); }, 3000);
+    } else {
+      this.textContent = 'Freeze';
+      if (fzRec && fzRec.state !== 'inactive') fzRec.stop();
+      stopFreezeBed();
+    }
+  });
+
+  document.getElementById('hazeSlider').addEventListener('input', function () {
+    S.haze = parseFloat(this.value);
+    ensureAudio();
+  });
+
+  document.getElementById('fieldSlider').addEventListener('input', function () {
+    S.field = parseFloat(this.value);
+    ensureAudio();
+  });
+
+  // ---------- go ----------
+  resize();
+  updateHint();
+  renderKnobs();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

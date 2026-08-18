@@ -311,6 +311,16 @@
 
 <script>
 (() => {
+  // ---------- device profile ----------
+  // phones: lighter visuals, fewer frames. audio is untouched.
+  const IS_MOBILE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+                    (navigator.maxTouchPoints > 1 && window.innerWidth < 900);
+  const DRAW_FPS = IS_MOBILE ? 30 : 60;
+  const GL_SCALE = IS_MOBILE ? 0.34 : 0.5;   // shader render scale
+  const TRAIL_LEN = IS_MOBILE ? 60 : 110;
+  const WIRE_LON = IS_MOBILE ? 40 : 64;      // supershape wireframe density
+  const WIRE_LAT = IS_MOBILE ? 20 : 32;
+
   // ---------- tunables ----------
   const MIN_HIT_GAP_MS = 150;      // balls: skip corner double-hits closer than this
   const PENDULUM_PERIOD = 2.0;     // seconds per full swing (same speed for all)
@@ -1409,11 +1419,19 @@
   }
 
   // per-frame view: morph params, fit scale, slow rotation
+  // (the fit scan is expensive; it only needs refreshing a few times a second)
+  let fitCache = { t: -1, v: 1 };
   function shapeView(t) {
     const P = shapeParams(t);
-    let maxR = 0;
-    for (let i = 0; i < 24; i++) for (let j = 0; j <= 12; j++) {
-      maxR = Math.max(maxR, surfaceRadius(-Math.PI + i / 24 * 2 * Math.PI, -Math.PI / 2 + j / 12 * Math.PI, P));
+    let maxR;
+    if (t - fitCache.t < 0.25) {
+      maxR = fitCache.v;
+    } else {
+      maxR = 0;
+      for (let i = 0; i < 24; i++) for (let j = 0; j <= 12; j++) {
+        maxR = Math.max(maxR, surfaceRadius(-Math.PI + i / 24 * 2 * Math.PI, -Math.PI / 2 + j / 12 * Math.PI, P));
+      }
+      fitCache = { t, v: maxR };
     }
     const fit = Math.min(canvas.clientWidth, canvas.clientHeight) * 0.36;
     return {
@@ -1515,7 +1533,7 @@
       // morphing, rotating 3d shape instead of hanging in screen space
       const ang = shapeDotAngles(d);
       d.trail.push({ t: ang.theta, p: ang.phi });
-      if (d.trail.length > 110) d.trail.shift();
+      if (d.trail.length > TRAIL_LEN) d.trail.shift();
       const pos = shapeDotPos(d, v);
       const normR = Math.min(pos.R * v.s / v.fit, 1); // 0..1 vs current max radius
       d.runMin = Math.min(d.runMin, normR);
@@ -1560,7 +1578,7 @@
     ctx.lineWidth = 1;
 
     // latitude rings
-    const LON_STEPS = 64, LAT_RINGS = 12;
+    const LON_STEPS = WIRE_LON, LAT_RINGS = SHAPE_LAT_RINGS;
     for (let j = 1; j < LAT_RINGS; j++) {
       const phi = -Math.PI / 2 + j / LAT_RINGS * Math.PI;
       ctx.beginPath();
@@ -1572,7 +1590,7 @@
       ctx.stroke();
     }
     // longitude lines
-    const LAT_STEPS = 32, LON_LINES = 16;
+    const LAT_STEPS = WIRE_LAT, LON_LINES = SHAPE_LON_LINES;
     for (let i = 0; i < LON_LINES; i++) {
       const theta = -Math.PI + i / LON_LINES * 2 * Math.PI;
       ctx.beginPath();
@@ -2507,8 +2525,8 @@ void main(){
     if (initDreamGL() === false) { drawAmbient('ambient2'); return; } // fallback: 2d lobes
     const t = performance.now() / 1000;
     // half-res backing store = cheap + naturally soft
-    const w = Math.floor(glCanvas.clientWidth * 0.5);
-    const h = Math.floor(glCanvas.clientHeight * 0.5);
+    const w = Math.floor(glCanvas.clientWidth * GL_SCALE);
+    const h = Math.floor(glCanvas.clientHeight * GL_SCALE);
     if (glCanvas.width !== w || glCanvas.height !== h) {
       glCanvas.width = w;
       glCanvas.height = h;
@@ -2810,21 +2828,30 @@ void main(){
     lastStep = now;
     while (remaining > 0) {
       const dt = Math.min(remaining, 0.033);
-      stepBalls(dt);
-      stepPendulums(dt);
-      stepShape(dt);
-      stepAmbient(dt);
-      stepDisint(dt);
-      stepRhythm(dt);
+      // scenes with nothing in them cost nothing (big win on phones)
+      if (scenes.balls.items.length) stepBalls(dt);
+      if (scenes.pendulum.items.length) stepPendulums(dt);
+      if (scenes.shape.items.length) stepShape(dt);
+      if (scenes.ambient.items.length || scenes.ambient2.items.length) stepAmbient(dt);
+      if (scenes.disint.items.length) stepDisint(dt);
+      if (scenes.rhythm.items.length) stepRhythm(dt);
       stepWorld(dt);
       stepGlobalFx(dt);
-      for (const k in scenes) stepRipples(scenes[k], dt);
+      for (const k in scenes) if (scenes[k].ripples.length) stepRipples(scenes[k], dt);
       remaining -= dt;
     }
   }
   setInterval(tick, 33);
 
-  function loop() {
+  let lastDraw = 0;
+  function loop(now) {
+    requestAnimationFrame(loop);
+    // frame limiter: 30fps on phones halves GPU/CPU work
+    if (now - lastDraw < 1000 / DRAW_FPS - 1) return;
+    lastDraw = now || 0;
+    // don't render at all while the page is hidden (audio keeps running)
+    if (document.hidden) return;
+
     const W = canvas.clientWidth, H = canvas.clientHeight;
     const sc = scenes[activeTab];
 
@@ -2842,8 +2869,6 @@ void main(){
     else if (activeTab === 'disint') drawDisint();
     else if (activeTab === 'rhythm') drawRhythm();
     else renderDream();
-
-    requestAnimationFrame(loop);
   }
 
   // ---------- input ----------
