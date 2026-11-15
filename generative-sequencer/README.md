@@ -1,9 +1,14 @@
-# Generative sequencer: Organic (Max for Live MIDI Effect)
+# Generative sequencer: Organic (Max for Live device and VST3/AU plugin)
 
-A generative drum sequencer for Ableton Live 12 / Max 9. This is the first of several
-generator modes ("organic"; irregular, mathematical and physical are planned). All
-musical and timing logic is a pure JavaScript engine that runs in Node and in Max's
-`[v8]`. The Max device is a thin adapter around it.
+A generative drum sequencer, available two ways:
+
+- a **Max for Live MIDI Effect** for Ableton Live 12 / Max 9 (`max/`), and
+- a **native plugin** for any DAW: VST3, plus an AU MIDI FX for Logic (`plugin/`).
+
+This is the first of several generator modes ("organic"; irregular, mathematical and
+physical are planned). The engine is pure JavaScript (Node and Max's `[v8]`), with a
+C++ port for the plugin. Both play the same performance for the same seed and settings,
+and a parity test keeps them in step.
 
 ```
 engine/                 pure JS, deterministic, no dependencies, no host APIs
@@ -31,6 +36,13 @@ cli/
 examples/               BUILT: four 32-bar performances to audition
 tools/                  bundler, patch generator, build script
 test/                   node:test suites (no dependencies)
+plugin/                 native plugin (C++17, JUCE 8)
+  engine/organic.*      C++ port of engine/ (same output, checked by test/plugin.test.js)
+  engine/block_scheduler.*  sample-accurate scheduling from the host transport
+  src/                  JUCE processor and editor
+  tests/                engine dump, scheduler tests, headless VST3 host test
+  CMakeLists.txt        builds Organic (VST3) and, on macOS, Organic MIDI FX (AU)
+  INSTALL.txt           install and routing notes shipped with the download
 ```
 
 Requires Node 18+ for the tools and tests. There is nothing to install.
@@ -132,6 +144,58 @@ LOM loop data and parameter changes to the scheduler, and scheduler commands to 
 | Arrangement loop | Read from the LOM (`loop`, `loop_start`, `loop_length`) and planned ahead, so wraps are seamless. A loop that isn't a whole number of bars skips engine time forward by less than a bar to keep the bar phase. |
 | Jump (click elsewhere while playing), loop edit that invalidates queued notes, meter change | Clear, release, and start a new performance at the new position. |
 | Same pitch twice within 0.02 beats in play time (loop seams that aren't whole bars, late notes after a stall) | Merged into one note; an earlier note is released before a later one starts. |
+
+## The plugin (VST3 / AU)
+
+**Download**: every push builds it on GitHub Actions (workflow `organic-plugin`). Open the
+latest run under the repository's *Actions* tab and download the **Organic-macOS**
+artifact. It contains `Organic.vst3`, `Organic MIDI FX.component` and `INSTALL.txt`.
+The binaries are universal (Apple Silicon and Intel) and ad-hoc signed, not notarised;
+`INSTALL.txt` has the one Terminal command that clears the download quarantine.
+
+**Which one where**
+- **Ableton Live**: Live has no slot for third-party MIDI effects and can't take MIDI out of
+  AU plugins. Load `Organic.vst3` on a MIDI track as an instrument, then on your Drum Rack
+  track set *MIDI From* to that track and choose *Organic* as the source.
+- **Logic Pro**: `Organic MIDI FX` in the MIDI FX slot of the drum track.
+- **Bitwig, Reaper, Cubase, Studio One**: `Organic.vst3`, with its MIDI output routed to
+  the drums.
+
+**Differences from the Max device**
+- Timing is sample-accurate. The host gives the position of every audio block, so notes go
+  out at exact sample offsets: no look-ahead, no delay line, no main-thread jitter.
+- A loop the host reports is split exactly at the loop end. A jump while playing (including
+  a loop the host doesn't report) continues the performance at the new position, so loops
+  keep evolving.
+- The editor has the same nine knobs and a status line (waiting / ready / playing, bar,
+  note count).
+
+**Build it yourself**
+
+```sh
+cd generative-sequencer/plugin
+cmake -B build -DCMAKE_BUILD_TYPE=Release            # fetches JUCE 8.0.15
+cmake --build build --config Release
+# macOS universal: add -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" to the first command
+```
+
+**How it's tested**
+- `npm test` builds the C++ engine and compares it with the JS engine event by event
+  (seeds, extreme settings, knob changes mid-run, mid-bar start, other meters; identical to
+  1e-12).
+- It also runs the block-scheduler tests against a simulated host: timing within one sample
+  for fixed and random block sizes, loops with and without host loop info, tempo changes,
+  stop, and a randomized run that checks no note hangs or retriggers while sounding.
+- `-DORGANIC_HOST_TEST=ON` builds a headless JUCE host that loads the *built* VST3, plays it
+  through a simulated transport with a loop and a parameter change set through the host,
+  and requires its MIDI to equal the engine's sample for sample. CI runs this on Linux and
+  macOS, and validates the AU with `auval`.
+
+**Not tested in a real DAW yet**: how each host reports loops and positions. Live may not
+report its loop to plugins, which the jump handling covers. Also untested: Live's VST3
+MIDI-out routing and Logic's MIDI FX slot with this build. The engine allocates memory
+while it generates (bar plans, the event cache); that's a small amount once per beat, but
+not strictly real-time safe.
 
 ## Building the device in Live
 

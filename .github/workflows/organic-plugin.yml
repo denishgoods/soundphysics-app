@@ -37,7 +37,7 @@ jobs:
         run: ./build/OrganicHostTest_artefacts/Release/OrganicHostTest
 
   macos:
-    runs-on: macos-14
+    runs-on: macos-15
     defaults:
       run:
         working-directory: generative-sequencer
