@@ -14,6 +14,9 @@ Record a short sound with the mic; physical/generative systems replay it.
 - **`soundphysics-ios/`** — native iOS shell (Capacitor + WKWebView) that bundles the
   web app into a real offline iPhone app, with a GitHub Actions workflow
   (`.github/workflows/ios.yml`) to build it in the cloud without needing Xcode.
+- **`generative-sequencer/`** — "Organic", a generative MIDI drum sequencer for Ableton Live
+  (Max for Live MIDI Effect, Max 9 `[v8]`). Pure-JS engine tested in Node, a CLI that writes
+  .mid files, and the device patch. See its README.
 - **`SPEC.md`** — technical spec: audio graph, the two-clock (sim/render) architecture,
   and the design reasoning behind trickier parts (soft clipping, freeze/sustain, haze).
 - **`INSTALL-GUIDE.md`** — plain-language setup guide.
