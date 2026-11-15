@@ -1,8 +1,9 @@
 'use strict';
 
-// The C++ engine (plugin/engine) must give the same performance as the JS
-// engine. Builds plugin/tests/engine_dump with the system compiler and
-// compares event by event. Skipped when no C++ compiler is available.
+// The native plugin's engine (plugin/engine, C++) must give the same
+// performance as the JS engine, and its block scheduler must pass its own
+// tests. Builds both test programs with the system compiler; skipped when
+// no C++ compiler is available.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -13,7 +14,8 @@ const E = require('../engine');
 
 const ROOT = path.join(__dirname, '..');
 const BIN = path.join(ROOT, 'out', 'bin', 'engine_dump');
-const SOURCES = ['plugin/tests/engine_dump.cpp', 'plugin/engine/organic.cpp'].map((f) => path.join(ROOT, f));
+const SCHED_BIN = path.join(ROOT, 'out', 'bin', 'scheduler_test');
+const ENGINE_FILES = ['plugin/engine/organic.h', 'plugin/engine/organic.cpp', 'plugin/engine/block_scheduler.h', 'plugin/engine/block_scheduler.cpp'];
 
 function compiler() {
   for (const cxx of [process.env.CXX, 'c++', 'g++', 'clang++'].filter(Boolean)) {
@@ -27,13 +29,15 @@ function compiler() {
   return null;
 }
 
-function build() {
+function build(bin, sources) {
   const cxx = compiler();
   if (!cxx) return false;
-  fs.mkdirSync(path.dirname(BIN), { recursive: true });
-  const newest = Math.max(...SOURCES.concat([path.join(ROOT, 'plugin/engine/organic.h')]).map((f) => fs.statSync(f).mtimeMs));
-  if (!fs.existsSync(BIN) || fs.statSync(BIN).mtimeMs < newest) {
-    execFileSync(cxx, ['-std=c++17', '-O2', '-ffp-contract=off', '-o', BIN, ...SOURCES], { stdio: 'inherit' });
+  fs.mkdirSync(path.dirname(bin), { recursive: true });
+  const all = sources.concat(ENGINE_FILES).map((f) => path.join(ROOT, f));
+  const newest = Math.max(...all.map((f) => fs.statSync(f).mtimeMs));
+  if (!fs.existsSync(bin) || fs.statSync(bin).mtimeMs < newest) {
+    const cpp = sources.map((f) => path.join(ROOT, f));
+    execFileSync(cxx, ['-std=c++17', '-O2', '-Wall', '-ffp-contract=off', '-o', bin, ...cpp], { stdio: 'inherit' });
   }
   return true;
 }
@@ -86,7 +90,7 @@ for (const meter of [[3, 4], [6, 8], [7, 8], [5, 4]]) {
 }
 
 test('C++ engine matches the JS engine event for event', (t) => {
-  if (!build()) {
+  if (!build(BIN, ['plugin/tests/engine_dump.cpp', 'plugin/engine/organic.cpp'])) {
     t.skip('no C++ compiler');
     return;
   }
@@ -106,4 +110,14 @@ test('C++ engine matches the JS engine event for event', (t) => {
       assert.ok(Math.abs(o.duration - e.duration) < 1e-12, `${where}: duration ${o.duration}`);
     });
   }
+});
+
+test('C++ block scheduler: sample-accurate timing, loops, stop, no hanging notes', (t) => {
+  const sources = ['plugin/tests/scheduler_test.cpp', 'plugin/engine/block_scheduler.cpp', 'plugin/engine/organic.cpp'];
+  if (!build(SCHED_BIN, sources)) {
+    t.skip('no C++ compiler');
+    return;
+  }
+  const out = execFileSync(SCHED_BIN, { encoding: 'utf8' });
+  assert.match(out, /scheduler tests passed/);
 });
