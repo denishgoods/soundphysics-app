@@ -68,7 +68,7 @@ function runDevice(dev, { bpm = 120, ms, playAtMs = 3, tickMs = 10, loop, onTick
 test('bundle loads in a bare context and announces itself', () => {
   const dev = loadDevice();
   assert.equal(dev.ctx.inlets, 1);
-  assert.equal(dev.ctx.outlets, 2);
+  assert.equal(dev.ctx.outlets, 3);
   assert.match(dev.posts.join(''), /organic: engine \d+\.\d+\.\d+ \(organic\) ready/);
   for (const fn of ['bang', 'transport', 'lom', 'param', 'probe', 'stats', 'panic', 'lookahead', 'verbose', 'anything']) {
     assert.equal(typeof dev.ctx[fn], 'function', fn);
@@ -137,6 +137,40 @@ test('bundle: params are applied, clamped, junk reported; probe stats', () => {
   assert.deepEqual({ ...dev.ctx.loopInfo }, { on: 0, start: 8, length: 4 });
 });
 
+test('bundle: status line proves the script runs and echoes knob moves', () => {
+  const dev = loadDevice();
+  const statusOut = () => dev.calls.filter((c) => c.n === 2).map((c) => c.args.join(' '));
+  dev.ctx.transport('state', 0);
+  dev.ctx.bang();
+  assert.deepEqual(statusOut(), ['ready - press play in Live']);
+  dev.calls.length = 0;
+  dev.ctx.param('density', 70.4);
+  dev.ctx.param('seed', 12);
+  assert.deepEqual(statusOut(), ['Density 70 %', 'Seed 12']);
+  // while playing it reports bar and note count (after the knob echo expires)
+  const fired = runDevice(dev, { ms: 6000, playAtMs: 3 });
+  assert.ok(fired.length > 0);
+  dev.calls.length = 0;
+  dev.ctx.status.noteUntil = 0;
+  dev.ctx.status.last = 0;
+  dev.ctx.bang();
+  const line = statusOut().pop();
+  assert.match(line, /^playing - bar \d+ - \d+ notes$/);
+});
+
+test('bundle: an engine error is reported once and does not stop the device', () => {
+  const dev = loadDevice();
+  const tick = dev.ctx.scheduler.tick;
+  dev.ctx.scheduler.tick = () => {
+    throw new Error('boom');
+  };
+  dev.ctx.bang();
+  dev.ctx.bang();
+  assert.equal(dev.posts.filter((p) => /organic: error/.test(p)).length, 1);
+  assert.ok(dev.calls.some((c) => c.n === 2 && c.args.join(' ').startsWith('error: Error: boom')));
+  dev.ctx.scheduler.tick = tick;
+});
+
 test('bundle: panic while playing releases notes and restarts cleanly', () => {
   const dev = loadDevice();
   let panicked = false;
@@ -181,6 +215,20 @@ test('patch: one v8 box loading organic.js, fed by every control path', () => {
   for (const f of ['t b b', 'prepend transport ticks', 'prepend transport state', 'prepend transport tempo', 'prepend transport timesig', 'prepend transport resolution', 'prepend lom loop', 'prepend lom loop_start', 'prepend lom loop_length', 'prepend probe']) {
     assert.ok(feeders.includes(f), 'missing ' + f);
   }
+});
+
+test('patch: status line in the device says "not running" until the script replaces it', () => {
+  const { STATUS_NOT_RUNNING } = require('../tools/maxpat');
+  const v8 = patch.boxes.find((b) => b.box.text === 'v8 organic.js').box;
+  assert.equal(v8.numoutlets, 3);
+  const set = linesFrom(v8.id, 2).map((l) => byId[l.patchline.destination[0]]);
+  assert.equal(set.length, 1);
+  assert.equal(set[0].text, 'prepend set');
+  const line = linesFrom(set[0].id, 0).map((l) => byId[l.patchline.destination[0]])[0];
+  assert.equal(line.maxclass, 'comment');
+  assert.equal(line.presentation, 1);
+  assert.equal(line.text, STATUS_NOT_RUNNING);
+  assert.match(line.text, /NOT running/);
 });
 
 test('patch: transport outlets go to the right fields', () => {

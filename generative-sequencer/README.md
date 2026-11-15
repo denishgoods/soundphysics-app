@@ -166,6 +166,22 @@ build is provided: the engine uses ES2015+ syntax.
 10. To share the device or move it around, click **Freeze Device** (snowflake icon at the
     bottom of the editor) and save. This embeds `organic.js` in the `.amxd`.
 
+### Troubleshooting: read the status line
+
+The device has a status line under the knobs. Its saved text is a failure message;
+the script replaces it the moment it runs.
+
+| Status line says | Meaning | Fix |
+|---|---|---|
+| `organic.js is NOT running ...` | `[v8]` never started. Either Live is using Max 8, or `organic.js` isn't next to the `.amxd`. | Open the device editor and look at the `v8 organic.js` box. A dashed or red box means no `[v8]`: use Live 12.2+, or point Live at Max 9. A normal box means the file wasn't found: the Max Console says so; put `organic.js` in the device's folder. |
+| `ready - press play in Live` | The script runs; the transport is stopped. | Press play. |
+| `playing - bar N - M notes` | Generating. M should keep rising. | If M rises but you hear nothing: the Drum Rack must come *after* the device and have pads on 36/37/38/42. |
+| `Density 70 %` (briefly, while you turn a knob) | The knob reached the script. | Changes are audible within 1-2 beats. |
+| `error: ...` | The engine threw. | Send the Max Console text. |
+
+A MIDI clip on the same track passes through the device unchanged, so the knobs can't
+affect it. Audition the generator with no clip on its track.
+
 ### 2b. Experimental shortcut
 
 `max/Organic.amxd` is the same patcher behind the binary header Live uses for MIDI

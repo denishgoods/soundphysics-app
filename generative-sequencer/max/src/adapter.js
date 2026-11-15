@@ -16,9 +16,10 @@
 // Outlets:
 //   0  note velocity aimedBeat delayMs   -> [unpack] -> [pipe]
 //   1  clear                              -> [pipe]
+//   2  status words                       -> [prepend set] -> status line in the device
 
 inlets = 1;
-outlets = 2;
+outlets = 3;
 autowatch = 1;
 
 var engine = OrganicEngine.createEngine({ mode: 'organic' });
@@ -29,22 +30,44 @@ var loopInfo = { on: 0, start: 0, length: 0 };
 var probeStats = { n: 0, sum: 0, sumSq: 0, min: Infinity, max: -Infinity };
 var verboseMs = 0;
 var lastReport = 0;
+var status = { text: '', note: '', noteUntil: 0, last: 0, error: '' };
 
 function bang() {
   var now = Date.now();
-  emit(
-    scheduler.tick({
-      playing: tp.state > 0,
-      beat: tp.ticks / (tp.resolution > 0 ? tp.resolution : 480),
-      bpm: tp.tempo,
-      meter: { num: tp.num, den: tp.den },
-      timeMs: now,
-    })
-  );
+  var beat = tp.ticks / (tp.resolution > 0 ? tp.resolution : 480);
+  try {
+    emit(scheduler.tick({ playing: tp.state > 0, beat: beat, bpm: tp.tempo, meter: { num: tp.num, den: tp.den }, timeMs: now }));
+  } catch (e) {
+    // Report once; keep ticking so a transient problem doesn't kill the device.
+    if (status.error !== String(e)) {
+      status.error = String(e);
+      post('organic: error ' + (e && e.stack ? e.stack : e) + '\n');
+    }
+  }
   if (verboseMs > 0 && now - lastReport >= verboseMs) {
     lastReport = now;
     stats();
   }
+  if (now - status.last >= 250) {
+    status.last = now;
+    showStatus(now, beat);
+  }
+}
+
+// One line in the device: proves the script runs, echoes knob moves, and
+// shows transport state. The patch's built-in text says the script is NOT
+// running, so a device that never gets here shows that instead.
+function showStatus(now, beat) {
+  var text;
+  if (status.error) text = 'error: ' + status.error + ' (see Max Console)';
+  else if (now < status.noteUntil) text = status.note;
+  else if (tp.state > 0) {
+    var bar = Math.floor(beat / engine.meter.barLen) + 1;
+    text = 'playing - bar ' + bar + ' - ' + scheduler.stats.notes + ' notes';
+  } else text = 'ready - press play in Live';
+  if (text === status.text) return;
+  status.text = text;
+  outlet(2, text.split(' '));
 }
 
 function emit(cmds) {
@@ -79,7 +102,15 @@ function lom(prop, a, b) {
 }
 
 function param(id, value) {
-  if (!engine.setParam(String(id), value)) post('organic: ignored param ' + id + ' ' + value + '\n');
+  if (!engine.setParam(String(id), value)) {
+    post('organic: ignored param ' + id + ' ' + value + '\n');
+    return;
+  }
+  var spec = OrganicEngine.paramSpec(String(id));
+  var v = engine.getParams()[id];
+  status.note = spec.name + ' ' + Math.round(v) + (spec.unit ? ' ' + spec.unit : '');
+  status.noteUntil = Date.now() + 1500;
+  showStatus(Date.now(), tp.ticks / (tp.resolution > 0 ? tp.resolution : 480));
 }
 
 // Timing self-test: how far from its aimed song position each note actually

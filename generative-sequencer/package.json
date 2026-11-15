@@ -1,6 +1,6 @@
 {
   "name": "generative-sequencer",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Generative MIDI sequencer for Ableton Live (Max for Live, v8). Mode 1: organic.",
   "license": "UNLICENSED",

@@ -42,8 +42,9 @@
 					"maxclass": "newobj",
 					"text": "v8 organic.js",
 					"numinlets": 1,
-					"numoutlets": 2,
+					"numoutlets": 3,
 					"outlettype": [
+						"",
 						"",
 						""
 					],
@@ -753,6 +754,47 @@
 			},
 			{
 				"box": {
+					"maxclass": "newobj",
+					"text": "prepend set",
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					],
+					"patching_rect": [
+						600,
+						380,
+						89,
+						22
+					],
+					"id": "obj-40"
+				}
+			},
+			{
+				"box": {
+					"maxclass": "comment",
+					"text": "organic.js is NOT running: needs Max 9 (v8) and organic.js next to the device. See Max Console.",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						600,
+						420,
+						675,
+						20
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						8,
+						84,
+						470,
+						34
+					],
+					"varname": "status",
+					"id": "obj-41"
+				}
+			},
+			{
+				"box": {
 					"maxclass": "comment",
 					"text": "ORGANIC",
 					"numinlets": 1,
@@ -772,7 +814,7 @@
 					],
 					"fontface": 1,
 					"fontsize": 12,
-					"id": "obj-40"
+					"id": "obj-42"
 				}
 			},
 			{
@@ -814,7 +856,7 @@
 						}
 					},
 					"varname": "Density",
-					"id": "obj-41"
+					"id": "obj-43"
 				}
 			},
 			{
@@ -832,7 +874,7 @@
 						159,
 						22
 					],
-					"id": "obj-42"
+					"id": "obj-44"
 				}
 			},
 			{
@@ -874,7 +916,7 @@
 						}
 					},
 					"varname": "Looseness",
-					"id": "obj-43"
+					"id": "obj-45"
 				}
 			},
 			{
@@ -892,7 +934,7 @@
 						173,
 						22
 					],
-					"id": "obj-44"
+					"id": "obj-46"
 				}
 			},
 			{
@@ -934,7 +976,7 @@
 						}
 					},
 					"varname": "Drift",
-					"id": "obj-45"
+					"id": "obj-47"
 				}
 			},
 			{
@@ -952,7 +994,7 @@
 						145,
 						22
 					],
-					"id": "obj-46"
+					"id": "obj-48"
 				}
 			},
 			{
@@ -994,7 +1036,7 @@
 						}
 					},
 					"varname": "Swing",
-					"id": "obj-47"
+					"id": "obj-49"
 				}
 			},
 			{
@@ -1012,7 +1054,7 @@
 						145,
 						22
 					],
-					"id": "obj-48"
+					"id": "obj-50"
 				}
 			},
 			{
@@ -1054,7 +1096,7 @@
 						}
 					},
 					"varname": "Breath",
-					"id": "obj-49"
+					"id": "obj-51"
 				}
 			},
 			{
@@ -1072,7 +1114,7 @@
 						152,
 						22
 					],
-					"id": "obj-50"
+					"id": "obj-52"
 				}
 			},
 			{
@@ -1114,7 +1156,7 @@
 						}
 					},
 					"varname": "Memory",
-					"id": "obj-51"
+					"id": "obj-53"
 				}
 			},
 			{
@@ -1132,7 +1174,7 @@
 						152,
 						22
 					],
-					"id": "obj-52"
+					"id": "obj-54"
 				}
 			},
 			{
@@ -1174,7 +1216,7 @@
 						}
 					},
 					"varname": "Accent",
-					"id": "obj-53"
+					"id": "obj-55"
 				}
 			},
 			{
@@ -1192,7 +1234,7 @@
 						152,
 						22
 					],
-					"id": "obj-54"
+					"id": "obj-56"
 				}
 			},
 			{
@@ -1234,7 +1276,7 @@
 						}
 					},
 					"varname": "Ghosts",
-					"id": "obj-55"
+					"id": "obj-57"
 				}
 			},
 			{
@@ -1252,7 +1294,7 @@
 						152,
 						22
 					],
-					"id": "obj-56"
+					"id": "obj-58"
 				}
 			},
 			{
@@ -1274,7 +1316,7 @@
 						50,
 						18
 					],
-					"id": "obj-57"
+					"id": "obj-59"
 				}
 			},
 			{
@@ -1316,7 +1358,7 @@
 						}
 					},
 					"varname": "Seed",
-					"id": "obj-58"
+					"id": "obj-60"
 				}
 			},
 			{
@@ -1334,7 +1376,7 @@
 						138,
 						22
 					],
-					"id": "obj-59"
+					"id": "obj-61"
 				}
 			}
 		],
@@ -1990,35 +2032,23 @@
 			{
 				"patchline": {
 					"destination": [
-						"obj-41",
+						"obj-40",
 						0
 					],
 					"source": [
-						"obj-4",
-						1
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
-						"obj-42",
-						0
-					],
-					"source": [
-						"obj-41",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"destination": [
 						"obj-2",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"destination": [
+						"obj-41",
 						0
 					],
 					"source": [
-						"obj-42",
+						"obj-40",
 						0
 					]
 				}
@@ -2278,7 +2308,7 @@
 			{
 				"patchline": {
 					"destination": [
-						"obj-58",
+						"obj-57",
 						0
 					],
 					"source": [
@@ -2290,11 +2320,11 @@
 			{
 				"patchline": {
 					"destination": [
-						"obj-59",
+						"obj-58",
 						0
 					],
 					"source": [
-						"obj-58",
+						"obj-57",
 						0
 					]
 				}
@@ -2306,7 +2336,43 @@
 						0
 					],
 					"source": [
-						"obj-59",
+						"obj-58",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"destination": [
+						"obj-60",
+						0
+					],
+					"source": [
+						"obj-4",
+						1
+					]
+				}
+			},
+			{
+				"patchline": {
+					"destination": [
+						"obj-61",
+						0
+					],
+					"source": [
+						"obj-60",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"destination": [
+						"obj-2",
+						0
+					],
+					"source": [
+						"obj-61",
 						0
 					]
 				}

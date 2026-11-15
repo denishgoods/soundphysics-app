@@ -15,6 +15,7 @@
 const { PARAMS } = require('../engine/params');
 
 const UNITSTYLE = { int: 0, float: 1, percent: 5 };
+const STATUS_NOT_RUNNING = 'organic.js is NOT running: needs Max 9 (v8) and organic.js next to the device. See Max Console.';
 
 function build(opts) {
   const scriptName = (opts && opts.scriptName) || 'organic.js';
@@ -49,7 +50,7 @@ function build(opts) {
   comment('Organic: generative MIDI sequencer (v8). Logic lives in ' + scriptName + ' (built from engine/).', 20, 4, null);
 
   // --- engine
-  const v8 = obj('v8 ' + scriptName, 1, 2, ['', ''], 20, 330, { saved_object_attributes: { parameter_enable: 0 } });
+  const v8 = obj('v8 ' + scriptName, 1, 3, ['', '', ''], 20, 330, { saved_object_attributes: { parameter_enable: 0 } });
 
   // --- init
   const thisdevice = obj('live.thisdevice', 1, 3, ['bang', 'int', 'int'], 20, 40);
@@ -130,6 +131,14 @@ function build(opts) {
     const m = msg(text, 420 + i * 95, 325);
     wire(m, 0, v8, 0);
   });
+
+  // --- status line. Its saved text is the failure message; the script
+  // replaces it as soon as it runs, so "not running" means v8 or the file
+  // is missing.
+  const statusSet = obj('prepend set', 1, 1, [''], 600, 380);
+  wire(v8, 2, statusSet, 0);
+  const statusLine = comment(STATUS_NOT_RUNNING, 600, 420, [8, 84, 470, 34], { varname: 'status' });
+  wire(statusSet, 0, statusLine, 0);
 
   // --- parameters (saved with the set, automatable)
   comment('ORGANIC', 20, 760, [8, 4, 120, 20], { fontface: 1, fontsize: 12 });
@@ -216,4 +225,4 @@ function amxd(patcherJson) {
   return Buffer.concat([head, json]);
 }
 
-module.exports = { build, amxd };
+module.exports = { build, amxd, STATUS_NOT_RUNNING };

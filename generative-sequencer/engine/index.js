@@ -17,7 +17,7 @@ const { LookaheadScheduler } = require('./scheduler');
 const prng = require('./prng');
 const noise = require('./modulators/noise');
 
-const VERSION = '0.1.0';
+const VERSION = '0.1.1';
 
 function createEngine(options) {
   const opts = options || {};
