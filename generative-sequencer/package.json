@@ -8,7 +8,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node --test",
+    "test": "node --test test/*.test.js",
     "build": "node tools/build.js",
     "sim": "node cli/simulate.js",
     "compare": "node cli/compare.js"
