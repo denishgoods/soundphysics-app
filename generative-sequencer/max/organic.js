@@ -1854,10 +1854,6 @@ function verbose(seconds) {
   verboseMs = Math.max(0, Number(seconds) || 0) * 1000;
 }
 
-function notifydeleted() {
-  panic();
-}
-
 function anything() {
   post('organic: unknown message ' + messagename + '\n');
 }

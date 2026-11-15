@@ -70,7 +70,7 @@ test('bundle loads in a bare context and announces itself', () => {
   assert.equal(dev.ctx.inlets, 1);
   assert.equal(dev.ctx.outlets, 2);
   assert.match(dev.posts.join(''), /organic: engine \d+\.\d+\.\d+ \(organic\) ready/);
-  for (const fn of ['bang', 'transport', 'lom', 'param', 'probe', 'stats', 'panic', 'lookahead', 'verbose', 'anything', 'notifydeleted']) {
+  for (const fn of ['bang', 'transport', 'lom', 'param', 'probe', 'stats', 'panic', 'lookahead', 'verbose', 'anything']) {
     assert.equal(typeof dev.ctx[fn], 'function', fn);
   }
 });

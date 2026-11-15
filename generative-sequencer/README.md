@@ -270,7 +270,8 @@ has run inside Max or Live. These assumptions need checking there:
 1. **v8 availability**: Live 12.2+ bundles Max 9 (from release notes and press coverage).
 2. **v8 script semantics** match js: top-level `function` declarations are message
    handlers; `inlets`, `outlets`, `autowatch`, `post`, `messagename`, `outlet(n, array)`
-   (as a list) and `notifydeleted` behave as in js; `Date.now()` exists.
+   (as a list) behave as in js; `Date.now()` exists. Message names `transport`, `lom`,
+   `param`, `probe` etc. don't clash with any v8 built-in.
 3. **`[transport]` outlets**: resolution 4th, tempo 5th, time signature 6th, state 7th,
    ticks 8th. In Max for Live it follows Live (including play state), and a reading from
    the low-priority thread is current to within one vector.
