@@ -1,0 +1,36 @@
+ORGANIC - generative drum sequencer (plugin)
+=============================================
+
+What's in this folder
+  Organic.vst3              for Ableton Live, Bitwig, Reaper, Cubase, Studio One...
+  Organic MIDI FX.component  for Logic Pro (MIDI FX slot)
+
+Install (macOS)
+  1. Copy Organic.vst3 to             ~/Library/Audio/Plug-Ins/VST3/
+     Copy Organic MIDI FX.component to ~/Library/Audio/Plug-Ins/Components/
+     (In Finder: Go > Go to Folder..., paste the path. Create the folder if missing.)
+  2. These builds are not notarised by Apple. Once, in Terminal:
+       xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/VST3/Organic.vst3
+       xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/"Organic MIDI FX.component"
+  3. Restart your DAW (Live: Settings > Plug-Ins > Rescan if it doesn't appear).
+
+Ableton Live
+  Live has no slot for third-party MIDI effects, so Organic loads as an
+  instrument whose MIDI you send to your drums:
+  1. MIDI track A: load Organic (Plug-ins > VST3 > Sound Physics > Organic).
+  2. MIDI track B: put a Drum Rack on it. Set "MIDI From" to track A, and in
+     the second menu choose "Organic". Set Monitor to "In".
+  3. Press play. Organic follows Live's transport, tempo and loop.
+  Use the VST3, not the AU: Live can't take MIDI out of AU plugins.
+
+Logic Pro
+  On a Drum Machine Designer or any instrument track: MIDI FX slot >
+  Audio Units > Sound Physics > Organic MIDI FX. Press play.
+
+Bitwig / Reaper / Cubase / Studio One
+  Load Organic.vst3 on its own track and route its MIDI output to a drum
+  instrument (Bitwig: a Note Receiver on the drum track listening to the
+  Organic track; Reaper: a MIDI send from the Organic track to the drum track).
+
+Lanes: Kick 36 (C1), Perc 37, Snare 38, Hat 42 (MIDI channel 1).
+Same seed and settings give the same performance as the Max for Live device.

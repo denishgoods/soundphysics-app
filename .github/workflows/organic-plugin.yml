@@ -1,0 +1,75 @@
+name: organic-plugin
+
+# Builds the Organic plugin (generative-sequencer/plugin): VST3 + AU for
+# macOS (universal: Apple Silicon and Intel, ad-hoc signed) and runs the
+# engine tests. The macOS download is the "Organic-macOS" artifact of a run.
+
+on:
+  push:
+    paths:
+      - 'generative-sequencer/**'
+      - '.github/workflows/organic-plugin.yml'
+  workflow_dispatch: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: generative-sequencer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Engine, Max device and C++ parity tests
+        run: npm test
+      - name: JUCE build dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ninja-build libfreetype-dev libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxext-dev libasound2-dev libfontconfig1-dev
+      - name: Build Linux VST3 and the headless host test
+        run: |
+          cmake -S plugin -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DORGANIC_HOST_TEST=ON
+          cmake --build build --target OrganicHostTest
+      - name: Load the built VST3 and compare its MIDI with the engine
+        run: ./build/OrganicHostTest_artefacts/Release/OrganicHostTest
+
+  macos:
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: generative-sequencer
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure (universal binary)
+        run: cmake -S plugin -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DORGANIC_HOST_TEST=ON
+      - name: Build VST3, AU and the host test
+        run: cmake --build build --config Release --target Organic_VST3 OrganicMidiFx_AU OrganicHostTest -j 4
+      - name: Ad-hoc sign
+        run: |
+          codesign --force --deep --sign - "build/Organic_artefacts/Release/VST3/Organic.vst3"
+          codesign --force --deep --sign - "build/OrganicMidiFx_artefacts/Release/AU/Organic MIDI FX.component"
+      - name: Load the built VST3 and compare its MIDI with the engine
+        run: ./build/OrganicHostTest_artefacts/Release/OrganicHostTest "build/Organic_artefacts/Release/VST3/Organic.vst3"
+      - name: Validate the AU MIDI effect with auval
+        run: |
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          cp -R "build/OrganicMidiFx_artefacts/Release/AU/Organic MIDI FX.component" ~/Library/Audio/Plug-Ins/Components/
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 2
+          auval -a | grep -i organic || true
+          auval -v aumi Orgm Sphy
+      - name: Package
+        run: |
+          mkdir -p dist/Organic
+          cp -R "build/Organic_artefacts/Release/VST3/Organic.vst3" dist/Organic/
+          cp -R "build/OrganicMidiFx_artefacts/Release/AU/Organic MIDI FX.component" dist/Organic/
+          cp plugin/INSTALL.txt dist/Organic/
+          cd dist && ditto -c -k --keepParent Organic Organic-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Organic-macOS
+          path: generative-sequencer/dist/Organic-macOS.zip
+          if-no-files-found: error
