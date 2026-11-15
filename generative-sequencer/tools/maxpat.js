@@ -124,6 +124,13 @@ function build(opts) {
   wire(probePack, 0, probeMsg, 0);
   wire(probeMsg, 0, v8, 0);
 
+  // --- utility messages for the patching view (not device parameters)
+  comment('diagnostics: click in locked mode, output in the Max Console', 420, 300, null);
+  ['stats', 'verbose 4', 'verbose 0', 'resetstats', 'lookahead 250', 'panic'].forEach((text, i) => {
+    const m = msg(text, 420 + i * 95, 325);
+    wire(m, 0, v8, 0);
+  });
+
   // --- parameters (saved with the set, automatable)
   comment('ORGANIC', 20, 760, [8, 4, 120, 20], { fontface: 1, fontsize: 12 });
   PARAMS.forEach((p, i) => {

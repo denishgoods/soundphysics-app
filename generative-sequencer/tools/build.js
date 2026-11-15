@@ -28,11 +28,31 @@ function buildAll() {
   ].join('\n');
   const script = header + eng.source + '\n// ==== max/src/adapter.js\n' + adapter;
   const patch = JSON.stringify(buildPatch({ scriptName: 'organic.js' }), null, '\t') + '\n';
-  return {
+  const out = {
     'max/organic.js': script,
     'max/organic.maxpat': patch,
     'max/Organic.amxd': amxd(patch),
   };
+  for (const ex of EXAMPLES) out['examples/' + ex.file] = renderExample(ex);
+  return out;
+}
+
+// Example performances to audition. The device plays exactly these when
+// started from bar 1 with the same settings and tempo.
+const EXAMPLES = [
+  { file: 'organic-defaults-seed1-120bpm.mid', bpm: 120, params: { seed: 1 } },
+  { file: 'organic-loose-seed7-96bpm.mid', bpm: 96, params: { seed: 7, looseness: 70, drift: 60, swing: 45, ghosts: 60 } },
+  { file: 'organic-tight-seed3-124bpm.mid', bpm: 124, params: { seed: 3, looseness: 10, drift: 10, swing: 0, memory: 85, breath: 30 } },
+  { file: 'organic-breathing-seed12-100bpm.mid', bpm: 100, params: { seed: 12, density: 45, breath: 100, memory: 50 } },
+];
+
+function renderExample(ex) {
+  const E = require('../engine');
+  const { writeMidi } = require('../cli/lib/midifile');
+  const eng = E.createEngine({ params: ex.params, bpm: ex.bpm });
+  eng.reset(0);
+  const notes = eng.generate(0, 32 * eng.meter.barLen);
+  return Buffer.from(writeMidi({ notes, bpm: ex.bpm, meter: eng.meter, name: ex.file.replace(/\.mid$/, '') }));
 }
 
 function main(argv) {
