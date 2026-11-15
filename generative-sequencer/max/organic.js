@@ -1272,6 +1272,7 @@ module.exports = { hash32, hashFloat, fmix32, Rng };
 //             { type: 'clear' }  (cancel everything still pending in the delay line)
 
 const EPS = 1e-9;
+const MIN_GAP = 0.02; // beats: same-pitch onsets closer than this are merged
 
 function num(v, fallback) {
   return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
@@ -1301,7 +1302,7 @@ class LookaheadScheduler {
     this.inFlight = [];
     this.lateAllowance = this.maxLateMs;
     this.needsResync = false;
-    this.stats = { notes: 0, late: 0, dropped: 0, starts: 0, resyncs: 0, wraps: 0, reschedules: 0 };
+    this.stats = { notes: 0, late: 0, dropped: 0, merged: 0, starts: 0, resyncs: 0, wraps: 0, reschedules: 0 };
   }
 
   // Live's arrangement loop. Applied at the next tick, so the separate
@@ -1478,10 +1479,29 @@ class LookaheadScheduler {
       uOn = this.uNow;
     }
     const uOff = Math.max(uOn + 0.01, u + ev.duration);
+    // The engine keeps each lane clean in engine time, but in play time two
+    // onsets of one pitch can still meet: across the seam of a loop that
+    // isn't a whole number of bars, or when late notes collapse onto "now".
+    const prev = this._lastOf(ev.note);
+    if (prev) {
+      if (uOn - prev.uOn < MIN_GAP) {
+        this.stats.merged++;
+        return;
+      }
+      if (uOn < prev.uOff) {
+        cmds.push({ type: 'note', note: ev.note, velocity: 0, delayMs: (uOn - this.uNow) * msPerBeat, songBeat: -1 });
+        prev.uOff = uOn;
+      }
+    }
     cmds.push({ type: 'note', note: ev.note, velocity: ev.velocity, delayMs: (uOn - this.uNow) * msPerBeat, songBeat });
     cmds.push({ type: 'note', note: ev.note, velocity: 0, delayMs: (uOff - this.uNow) * msPerBeat, songBeat: -1 });
     this.inFlight.push({ note: ev.note, velocity: ev.velocity, uOn, uOff, songBeat });
     this.stats.notes++;
+  }
+
+  _lastOf(note) {
+    for (let i = this.inFlight.length - 1; i >= 0; i--) if (this.inFlight[i].note === note) return this.inFlight[i];
+    return null;
   }
 
   // Tempo changed noticeably: pending delays were computed at the old tempo.
@@ -1806,7 +1826,7 @@ function probe(ticks, aimedBeat) {
 
 function stats() {
   var s = scheduler.stats;
-  var line = 'organic: notes ' + s.notes + ', late ' + s.late + ', dropped ' + s.dropped + ', starts ' + s.starts + ', resyncs ' + s.resyncs + ', wraps ' + s.wraps + ', reschedules ' + s.reschedules;
+  var line = 'organic: notes ' + s.notes + ', late ' + s.late + ', dropped ' + s.dropped + ', merged ' + s.merged + ', starts ' + s.starts + ', resyncs ' + s.resyncs + ', wraps ' + s.wraps + ', reschedules ' + s.reschedules;
   if (probeStats.n > 0) {
     var mean = probeStats.sum / probeStats.n;
     var sd = Math.sqrt(Math.max(0, probeStats.sumSq / probeStats.n - mean * mean));

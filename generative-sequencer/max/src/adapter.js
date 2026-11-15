@@ -98,7 +98,7 @@ function probe(ticks, aimedBeat) {
 
 function stats() {
   var s = scheduler.stats;
-  var line = 'organic: notes ' + s.notes + ', late ' + s.late + ', dropped ' + s.dropped + ', starts ' + s.starts + ', resyncs ' + s.resyncs + ', wraps ' + s.wraps + ', reschedules ' + s.reschedules;
+  var line = 'organic: notes ' + s.notes + ', late ' + s.late + ', dropped ' + s.dropped + ', merged ' + s.merged + ', starts ' + s.starts + ', resyncs ' + s.resyncs + ', wraps ' + s.wraps + ', reschedules ' + s.reschedules;
   if (probeStats.n > 0) {
     var mean = probeStats.sum / probeStats.n;
     var sd = Math.sqrt(Math.max(0, probeStats.sumSq / probeStats.n - mean * mean));

@@ -139,12 +139,12 @@ test('loop that is not a whole number of bars keeps the bar phase', () => {
   assert.ok(kicks.length > 10);
   const onDownbeat = kicks.filter((f) => Math.abs(f.song - 4) < 0.08).length;
   assert.ok(onDownbeat > 5, 'downbeat kicks ' + onDownbeat);
-  // monotonic per note: nothing fires twice
-  const seen = new Set();
-  for (const f of host.noteOns()) {
-    const k = f.note + ':' + f.u.toFixed(9);
-    assert.ok(!seen.has(k));
-    seen.add(k);
+  // across the seam, two onsets of one pitch never pile up (they are merged)
+  const byNote = {};
+  for (const f of host.noteOns()) (byNote[f.note] = byNote[f.note] || []).push(f.u);
+  for (const n of Object.keys(byNote)) {
+    const us = byNote[n].sort((a, b) => a - b);
+    for (let i = 1; i < us.length; i++) assert.ok(us[i] - us[i - 1] >= 0.02 - 1e-9, `note ${n} at ${us[i - 1]} and ${us[i]}`);
   }
 });
 
