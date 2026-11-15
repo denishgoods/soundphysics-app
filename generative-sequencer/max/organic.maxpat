@@ -908,7 +908,7 @@
 							"parameter_mmin": 0,
 							"parameter_mmax": 100,
 							"parameter_initial": [
-								35
+								25
 							],
 							"parameter_initial_enable": 1,
 							"parameter_unitstyle": 5,
@@ -968,7 +968,7 @@
 							"parameter_mmin": 0,
 							"parameter_mmax": 100,
 							"parameter_initial": [
-								30
+								25
 							],
 							"parameter_initial_enable": 1,
 							"parameter_unitstyle": 5,
@@ -1088,7 +1088,7 @@
 							"parameter_mmin": 0,
 							"parameter_mmax": 100,
 							"parameter_initial": [
-								50
+								40
 							],
 							"parameter_initial_enable": 1,
 							"parameter_unitstyle": 5,
@@ -1152,7 +1152,7 @@
 							],
 							"parameter_initial_enable": 1,
 							"parameter_unitstyle": 5,
-							"parameter_info": "How strongly figures return. 0 invents every bar; 100 repeats with only small variations."
+							"parameter_info": "How strongly the groove holds. 0 changes figure almost every bar; 100 locks it, varying only at phrase ends."
 						}
 					},
 					"varname": "Memory",

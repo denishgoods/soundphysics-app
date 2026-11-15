@@ -21,7 +21,9 @@ test('MIDI write/read round trip keeps notes within one tick', () => {
   assert.equal(back.ppq, 960);
   assert.ok(Math.abs(back.tempos[0].bpm - 97) < 0.01);
   assert.equal(back.notes.length, notes.length);
-  const sorted = notes.slice().sort((a, b) => a.beat - b.beat || a.note - b.note);
+  // compare in file order: by tick, then note (notes within one tick may swap)
+  const tick = (n) => Math.round(n.beat * 960);
+  const sorted = notes.slice().sort((a, b) => tick(a) - tick(b) || a.note - b.note);
   back.notes.forEach((n, i) => {
     assert.equal(n.note, sorted[i].note);
     assert.equal(n.velocity, sorted[i].velocity);

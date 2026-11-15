@@ -53,8 +53,8 @@ npm run build                                    # regenerate max/ and examples/
 | No step grid | Events are float beats. When inventing a figure the generator aims at *attractors* from several subdivisions at once (16ths, triplets, 16th triplets, quintuplets, weighted by role and Looseness), adds an intentional displacement that stays with the figure, then applies swing, drift and jitter. Fills use continuously accelerating or relaxing spacing that follows no subdivision. Nothing is ever snapped to a slot. Tested: most notes are off the 16th grid and positions are continuous. |
 | Correlated microtiming | `modulators/noise.js`: cubic B-spline value noise summed over octaves (persistence 0.6, between pink 1/f and a random walk). Timing = ensemble drift (whole kit rushes and drags) + per-lane drift + the role's push/pull bias (kick slightly ahead, snare behind), which itself wanders slowly. Only a small jitter term is uncorrelated. |
 | Swing that varies | A continuous time warp (8th and 16th level) whose amount wanders around the Swing setting with a slow noise field. |
-| Breathing density | `modulators/breath.js`: phrases of 2, 4 or 8 bars shaped build / arch / steady / fade, many ending in a rest. Each lane plays the candidates of its figure whose priority is below its current density, so figures thin out and fill in while keeping their identity. Hats keep time through rests more than the other lanes. |
-| Memory | A bank of up to 4 one-bar figures. Each bar the player recalls the current figure (or, at phrase starts, an older one) and varies it in timing, accents and omissions, or develops or invents a new one. Memory sets the recall rate and how small the variations are; low memory also lets variations overwrite the stored figure, so figures drift. |
+| Breathing density | `modulators/breath.js`: phrases of 2, 4 or 8 bars shaped build / arch / steady / fade, many ending in a rest. Density is set per bar (rests can start mid-bar). Each figure's notes are ranked by importance for their role, and a lane plays the ones below its current density. So thinning drops 16ths and syncopations first, while backbeats, the downbeat kick and quarter-note hats go last. Hats keep time through rests more than the other lanes. |
+| Memory | A bank of up to 4 one-bar figures, locked to phrases. A figure holds for the whole phrase: most bars replay it exactly (timing and velocity are still humanised), some get a light variation, and the phrase's last bar carries the bigger variation, often with a fill. Switching to another figure (back to an older one, a development of the current one, or a new idea) is decided at phrase starts. Memory sets how often figures switch and how much bars vary; at low Memory figures also switch mid-phrase and drift. Flams belong to a note, so a repeated figure flams the same way each time. |
 | Velocity | Soft metric emphasis (gaussian fall-off around metric positions) scaled by Accent, accents per figure, ghost notes (Ghosts), flams (soft grace 14–36 ms early, Ghosts), phrase dynamics and a slow velocity wander. |
 | Reproducible | Integer-hash PRNG keyed by (seed, bar, note), so it is bit-exact across JS engines. A performance starts when the transport starts: the same seed, settings and tempo give the same notes in the CLI and in the device, from whatever bar you start (bar phase is kept). |
 
@@ -65,11 +65,11 @@ All are `live.dial` objects (Seed is a `live.numbox`), saved with the set and au
 | Name | Range | Default | Effect |
 |---|---|---|---|
 | Density | 0–100 % | 55 | How many notes play. 0 is silence. |
-| Looseness | 0–100 % | 35 | Per-note timing scatter; how often figures use triplets and quintuplets. |
-| Drift | 0–100 % | 30 | Slow correlated drift and per-lane push/pull. 0 with Looseness 0 is metronomic. |
+| Looseness | 0–100 % | 25 | Per-note timing scatter; how often figures use triplets and quintuplets. |
+| Drift | 0–100 % | 25 | Slow correlated drift and per-lane push/pull. 0 with Looseness 0 is metronomic. |
 | Swing | 0–100 % | 20 | Average swing; 100 is a triplet feel. The amount wanders over time. |
-| Breath | 0–100 % | 50 | Depth of phrase breathing: builds, thinning out, rests. |
-| Memory | 0–100 % | 65 | 0 invents every bar; 100 repeats with only small variations. |
+| Breath | 0–100 % | 40 | Depth of phrase breathing: builds, thinning out, rests. |
+| Memory | 0–100 % | 65 | 0 changes figure almost every bar; 100 locks the groove (with Breath at 0, about 90 % of bars repeat exactly). |
 | Accent | 0–100 % | 50 | Velocity contrast. |
 | Ghosts | 0–100 % | 35 | Ghost notes and flams. |
 | Seed | 0–9999 | 1 | Random seed. |
@@ -161,7 +161,7 @@ build is provided: the engine uses ES2015+ syntax.
    the background) and tick **Open in Presentation**.
 8. Save and close the editor. The device shows nine controls.
 9. In the Max Console (*Window > Max Console*) you should see
-   `organic: engine 0.1.0 (organic) ready`. If you see that `organic.js` can't be found,
+   `organic: engine 0.2.0 (organic) ready`. If you see that `organic.js` can't be found,
    the script isn't in the same folder as the `.amxd` (step 1).
 10. To share the device or move it around, click **Freeze Device** (snowflake icon at the
     bottom of the editor) and save. This embeds `organic.js` in the `.amxd`.

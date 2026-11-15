@@ -19,6 +19,7 @@ const { ROLES } = require('../../lanes');
 //   prio  0..1, lower plays first
 //   accent 0, or 0.5..1
 //   flam  true if this accent may be flammed
+//   id    stable identity, kept through variations
 
 const BANK_SIZE = 4;
 
@@ -59,9 +60,20 @@ function laneScale(meter) {
   return meter.barLen / 4;
 }
 
-function prioFor(rank, n, rng) {
-  const p = (rank + 0.5 + rng.range(-0.3, 0.3)) / n;
+// Priority from rank. `curve` > 1 pulls the first ranks towards 0, so a
+// role's core notes (backbeats, downbeat kick) survive deep thinning.
+function prioFor(rank, n, rng, curve) {
+  const p = Math.pow((rank + 0.5 + rng.range(-0.15, 0.15)) / n, curve || 1);
   return Math.min(0.999, Math.max(0.001, p));
+}
+
+// Rank picked attractors by how idiomatic they are for the role (with a
+// little randomness), so thinning drops the least important notes first.
+function byImportance(items, scoreOf, rng) {
+  return items
+    .map((it, i) => ({ it, k: scoreOf(it) * rng.range(0.85, 1.15), i }))
+    .sort((a, b) => b.k - a.k || a.i - b.i)
+    .map((x) => x.it);
 }
 
 function makeMain(li, att, rank, n, rng, ctx) {
@@ -70,12 +82,13 @@ function makeMain(li, att, rank, n, rng, ctx) {
   const accent = rng.chance(role.accentP * role.accentWeight(att, ctx.meter)) ? rng.range(0.5, 1) : 0;
   const flam = accent > 0 && role.flam > 0 && rng.chance(role.flam);
   return {
+    id: rng.int(0x7fffffff),
     lane: li,
     pos: clampPos(att.pos + disp, ctx.meter.barLen),
     att: att.pos,
     fam: att.family,
     kind: 'main',
-    prio: prioFor(rank, n, rng),
+    prio: prioFor(rank, n, rng, ROLES[ctx.lanes[li].role].prioCurve),
     accent,
     flam,
   };
@@ -87,15 +100,16 @@ function freshLane(li, rng, ctx) {
   const n = Math.max(1, Math.round(role.maxNotes * laneScale(meter)));
   const weight = (a) => Math.pow(role.pref(a, meter, p.looseness), role.sharp);
   const atts = sample(rng, meter.attractors, weight, n, role.minSpacing);
-  const mains = atts.map((a, r) => makeMain(li, a, r, n, rng, ctx));
+  const ranked = byImportance(atts, (a) => role.pref(a, meter, p.looseness), rng);
+  const mains = ranked.map((a, r) => makeMain(li, a, r, n, rng, ctx));
 
   const out = mains.slice();
   const nGhost = Math.round(role.ghostMax * laneScale(meter));
   if (nGhost > 0) {
     const slots = role.ghostSlots(meter, mains).filter((s) => s.pos >= 0 && s.pos < meter.barLen);
     const picked = sample(rng, slots, (s) => Math.pow(s.weight, 1.5), nGhost, 0.11, mains.map((m) => m.pos));
-    picked.forEach((s, r) => {
-      out.push({ lane: li, pos: s.pos, att: s.pos, fam: 'main', kind: 'ghost', prio: prioFor(r, nGhost, rng), accent: 0, flam: false });
+    byImportance(picked, (s) => s.weight, rng).forEach((s, r) => {
+      out.push({ id: rng.int(0x7fffffff), lane: li, pos: s.pos, att: s.pos, fam: 'main', kind: 'ghost', prio: prioFor(r, nGhost, rng), accent: 0, flam: false });
     });
   }
   return out;
@@ -157,7 +171,7 @@ function varyMotif(notes, amount, rng, ctx) {
     if (rng.chance(0.15 * amount)) c.prio = Math.min(0.999, Math.max(0.001, c.prio + rng.gauss() * 0.12));
     out.push(c);
   }
-  const adds = Math.floor(amount * 2.2 + rng.float());
+  const adds = Math.floor(amount * 1.5 + rng.float() * 0.8);
   for (let i = 0; i < adds; i++) {
     const li = rng.weighted(ctx.lanes.map((l) => ROLES[l.role].maxNotes));
     const role = ROLES[ctx.lanes[li].role];
@@ -176,11 +190,13 @@ function copyNotes(notes) {
   return notes.map((n) => Object.assign({}, n));
 }
 
-// The player's memory: a small bank of figures with strengths. Each bar it
-// either recalls a figure (the current one, or at phrase starts an older one)
-// and varies it, or develops/invents a new one. Memory (0..1) sets how often
-// it recalls and how little it varies; low memory also lets variations
-// overwrite the stored figure, so figures drift.
+// The player's memory: a small bank of figures with strengths. A figure holds
+// for a whole phrase. Most bars replay it exactly (timing and velocity are
+// still humanised at render time), some get a light variation, and the last
+// bar of a phrase carries the bigger variation. Switching figure (back to an
+// older one, a development of the current one, or a new idea) is decided at
+// phrase starts; with low Memory it can also happen mid-phrase, and
+// variations may overwrite the stored figure so it drifts.
 class MotifMemory {
   constructor() {
     this.bank = [];
@@ -189,32 +205,34 @@ class MotifMemory {
 
   next(bar, info, rng, ctx) {
     const m = ctx.p.memory;
-    for (const mo of this.bank) mo.strength *= 0.95;
+    const loose = 1 - m;
+    for (const mo of this.bank) mo.strength *= 0.97;
     if (!this.bank.length) return copyNotes(this._store(freshMotif(rng, ctx), bar).notes);
 
-    let pRecall = Math.pow(m, 0.75);
-    if (info.isFirst) pRecall *= 0.8;
-    if (rng.chance(pRecall)) {
-      let motif = this.current || this.bank[0];
-      if (info.isFirst && this.bank.length > 1 && rng.chance(0.5)) {
-        const others = this.bank.filter((b) => b !== this.current);
-        motif = others[rng.weighted(others.map((b) => b.strength))];
+    const pChange = info.isFirst ? 0.85 * Math.pow(loose, 1.2) : 0.6 * Math.pow(loose, 2.5);
+    if (rng.chance(pChange)) {
+      const others = this.bank.filter((b) => b !== this.current);
+      const r = rng.float();
+      if (others.length && r < 0.3) {
+        this.current = others[rng.weighted(others.map((b) => b.strength))];
+      } else if (r < 0.3 + 0.7 * (0.4 + 0.6 * m)) {
+        this._store(varyMotif(this.current.notes, 0.35 + 0.4 * loose, rng, ctx), bar);
+      } else {
+        this._store(freshMotif(rng, ctx), bar);
       }
-      const amount = 0.04 + (1 - m) * 0.55 + (info.isLast ? 0.2 : 0);
-      const varied = varyMotif(motif.notes, amount, rng, ctx);
-      if (rng.chance((1 - m) * 0.45)) motif.notes = copyNotes(varied);
-      motif.strength += 1;
-      motif.uses += 1;
-      this.current = motif;
-      return varied;
     }
-    let notes;
-    if (this.current && rng.chance(0.15 + 0.6 * m)) {
-      notes = varyMotif(this.current.notes, 0.55 + 0.35 * (1 - m), rng, ctx);
-    } else {
-      notes = freshMotif(rng, ctx);
-    }
-    return copyNotes(this._store(notes, bar).notes);
+
+    const motif = this.current;
+    motif.strength += 1;
+    motif.uses += 1;
+    let amount;
+    if (info.isLast) amount = 0.12 + 0.35 * loose;
+    else if (rng.chance(0.45 + 0.5 * m)) amount = 0;
+    else amount = 0.03 + 0.3 * loose;
+    if (amount === 0) return copyNotes(motif.notes);
+    const varied = varyMotif(motif.notes, amount, rng, ctx);
+    if (!info.isLast && rng.chance(0.4 * loose * loose)) motif.notes = copyNotes(varied);
+    return varied;
   }
 
   _store(notes, bar) {

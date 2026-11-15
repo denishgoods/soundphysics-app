@@ -22,6 +22,7 @@ const { MotifMemory } = require('./motifs');
 
 const SALT_PLAN = 0x91a7;
 const SALT_RENDER = 0x4e7d;
+const SALT_FLAM = 0xf1a3;
 const MAX_DEV = 0.4;
 const MAX_DUR = 0.5;
 
@@ -35,12 +36,18 @@ function clamp(x, a, b) {
 
 const KIND_ORDER = { main: 0, fill: 1, ghost: 2 };
 
-// Fills: at a phrase end, a roll on the snare (or perc) lane whose spacing
-// accelerates or relaxes continuously. These positions are deliberately not
-// taken from any subdivision.
+// Fills: at a phrase end, a short roll on the snare (or perc) lane at a
+// steady rate (16ths, 16th triplets or 8th triplets), bent slightly ahead or
+// behind as a whole, with the odd stroke left out.
+const FILL_RATES = [
+  { div: 4, fam: 'main', weight: 3 },
+  { div: 6, fam: 'cross', weight: 1.5 },
+  { div: 3, fam: 'cross', weight: 1 },
+];
+
 function addFill(notes, info, rng, ctx) {
   if (!info.isLast) return notes;
-  const pFill = 0.3 + (info.shape === 'build' ? 0.4 : 0);
+  const pFill = 0.15 + (info.shape === 'build' ? 0.35 : 0);
   if (!rng.chance(pFill)) return notes;
   const { meter, lanes } = ctx;
   const byRole = (r) => lanes.findIndex((l) => l.role === r);
@@ -51,18 +58,22 @@ function addFill(notes, info, rng, ctx) {
   const spanLen = Math.min(spanEnd, meter.pulse * (rng.chance(0.5) ? 1 : 2));
   if (spanLen < meter.pulse * 0.99) return notes;
   const spanStart = spanEnd - spanLen;
-  const count = 3 + rng.int(spanLen > meter.pulse ? 5 : 3);
-  const gamma = rng.range(0.75, 1.3);
+  const rate = FILL_RATES[rng.weighted(FILL_RATES.map((r) => r.weight))];
+  const count = Math.round((spanLen / meter.pulse) * rate.div);
+  const gamma = rng.range(0.93, 1.07);
   const kept = notes.filter((n) => n.lane !== li || n.pos < spanStart || n.pos >= spanEnd);
+  const prio = 0.2 + 0.4 * rng.float();
   for (let i = 0; i < count; i++) {
     const u = i / count;
+    if (i < count - 1 && i > 0 && rng.chance(0.15)) continue;
     kept.push({
+      id: rng.int(0x7fffffff),
       lane: li,
       pos: spanStart + spanLen * Math.pow(u, gamma),
-      att: spanStart,
-      fam: 'free',
+      att: spanStart + spanLen * u,
+      fam: rate.fam,
       kind: 'fill',
-      prio: 0.2 + 0.4 * rng.float(),
+      prio,
       accent: i === count - 1 ? 0.6 : 0,
       flam: false,
       fillProg: u,
@@ -96,9 +107,10 @@ function getPlan(k, st) {
 
 // Effective density of a lane at performance time t (beats).
 function laneDensity(st, role, lane, t) {
-  const env = st.mods.breath.value(t / st.meter.barLen);
-  const f = Math.max(0, 1 + (env - 1) * st.p.breath * role.breathSens);
-  return { dl: clamp(st.p.density * f * lane.density, 0, 1), env };
+  const barPos = t / st.meter.barLen;
+  const level = st.mods.breath.densityAt(barPos);
+  const f = Math.max(0, 1 + (level - 1) * st.p.breath * role.breathSens);
+  return { dl: clamp(st.p.density * f * lane.density, 0, 1), env: st.mods.breath.value(barPos) };
 }
 
 function render(c, k, barStart, st, out) {
@@ -129,7 +141,7 @@ function render(c, k, barStart, st, out) {
   const drift =
     p.drift *
     (0.055 * mods.noise('ensemble', 0)(t / 6) +
-      0.03 * mods.noise('drift', li)(t / 1.5) +
+      0.015 * mods.noise('drift', li)(t / 4) +
       role.bias +
       0.012 * mods.noise('bias', li, BIAS_NOISE)(t / 24));
   const jitter = p.looseness * 0.014 * r.gauss();
@@ -153,8 +165,9 @@ function render(c, k, barStart, st, out) {
   const duration = Math.min(MAX_DUR, role.duration * (c.kind === 'ghost' ? 0.6 : 1));
   out.push({ beat, lane: li, note: lane.note, velocity, duration });
 
-  // Flam: a soft grace note 14-36 ms before the stroke.
-  if (c.flam && c.kind === 'main' && r.float() < p.ghosts * 0.55) {
+  // Flam: a soft grace note 14-36 ms before the stroke. Whether a note flams
+  // is a property of the note (and the Ghosts setting), not of the bar.
+  if (c.flam && c.kind === 'main' && hash32(st.seed, SALT_FLAM, c.id) / 4294967296 < p.ghosts * 0.55) {
     const gap = Math.min(0.09, ((14 + 22 * r.float()) * st.bpm) / 60000);
     const gv = clamp(Math.round(velocity * (0.38 + 0.2 * r.float())), 1, 127);
     out.push({ beat: beat - gap, lane: li, note: lane.note, velocity: gv, duration: gap * 0.7 });

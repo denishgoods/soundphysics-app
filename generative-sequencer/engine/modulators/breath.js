@@ -89,6 +89,19 @@ class BreathEnvelope {
     return Math.max(REST_LEVEL, v);
   }
 
+  // Density for gating notes: constant within a bar (taken at the bar's
+  // middle), so a repeated figure plays the same notes for the whole bar;
+  // rests still start mid-bar. value() stays continuous for dynamics.
+  densityAt(barPos) {
+    const x = Math.max(0, barPos);
+    const ph = this.phraseAt(x);
+    const local = x - ph.start;
+    const active = ph.bars - ph.rest;
+    if (local >= active) return REST_LEVEL;
+    const mid = Math.min(active, Math.floor(local) + 0.5);
+    return Math.max(REST_LEVEL, ph.level * shapeValue(ph.shape, mid / active));
+  }
+
   // Phrase facts for a whole performance bar, used for bar-level decisions
   // (new ideas at phrase starts, fills at phrase ends).
   info(bar) {

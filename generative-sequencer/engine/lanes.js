@@ -15,15 +15,15 @@ function nearestOddPulseDist(meter, pos) {
 }
 
 function familyFactor(att, looseness, cross, odd) {
-  if (att.family === 'cross') return cross * (0.15 + 1.4 * looseness);
-  if (att.family === 'odd') return odd * 1.5 * looseness * looseness;
+  if (att.family === 'cross') return cross * (0.05 + 1.1 * looseness * looseness);
+  if (att.family === 'odd') return odd * 1.2 * looseness * looseness * looseness;
   return 1;
 }
 
 const ROLES = {
   // Kick-like: sparse, strongly metric, anticipates strong beats.
   anchor: {
-    maxNotes: 6, minSpacing: 0.24, sharp: 2,
+    maxNotes: 6, minSpacing: 0.24, sharp: 2.5, prioCurve: 1.4,
     velocity: 104, ghostVel: 50, ghostMax: 2,
     accentP: 0.3, flam: 0,
     bias: -0.02, duration: 0.25, breathSens: 0.9,
@@ -46,7 +46,7 @@ const ROLES = {
 
   // Snare-like: backbeats, ghost notes around them, flams on accents.
   backbeat: {
-    maxNotes: 4, minSpacing: 0.2, sharp: 3,
+    maxNotes: 4, minSpacing: 0.2, sharp: 3, prioCurve: 1.8,
     velocity: 98, ghostVel: 30, ghostMax: 7,
     accentP: 0.4, flam: 0.4,
     bias: 0.025, duration: 0.2, breathSens: 1.0,
@@ -75,7 +75,7 @@ const ROLES = {
 
   // Hat-like: keeps time with subdivisions, swing shows most here.
   pulse: {
-    maxNotes: 16, minSpacing: 0.2, sharp: 3.5,
+    maxNotes: 16, minSpacing: 0.2, sharp: 3.5, prioCurve: 1,
     velocity: 80, ghostVel: 38, ghostMax: 4,
     accentP: 0.22, flam: 0,
     bias: 0.008, duration: 0.12, breathSens: 0.7,
@@ -97,7 +97,7 @@ const ROLES = {
 
   // Percussion colour: syncopations, triplets, the occasional flam.
   color: {
-    maxNotes: 4, minSpacing: 0.24, sharp: 1.2,
+    maxNotes: 4, minSpacing: 0.24, sharp: 2, prioCurve: 1,
     velocity: 88, ghostVel: 42, ghostMax: 3,
     accentP: 0.35, flam: 0.25,
     bias: -0.015, duration: 0.2, breathSens: 1.2,

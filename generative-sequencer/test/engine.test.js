@@ -317,3 +317,51 @@ test('params: Breath makes density vary more between bars', () => {
   };
   assert.ok(barSpread(100) > barSpread(0) * 1.5, `${barSpread(0)} -> ${barSpread(100)}`);
 });
+
+// --- groove: guards against tuning drifting back to "too random" ---------
+
+function barStats(params, seeds) {
+  let sim = 0;
+  let pairs = 0;
+  let repeats = 0;
+  let backbeats = 0;
+  let bars = 0;
+  for (const seed of seeds) {
+    const evs = makeEngine({ seed, params }).generate(0, 32 * 4);
+    const byBar = Array.from({ length: 32 }, () => []);
+    for (const e of evs) byBar[Math.min(31, Math.floor((e.beat + 0.1) / 4))].push(e);
+    for (let k = 0; k < 32; k++) {
+      const snare = byBar[k].filter((e) => e.lane === 1 && e.velocity > 60);
+      const on = (b) => snare.some((e) => Math.abs(e.beat - (k * 4 + b)) < 0.08);
+      bars++;
+      if (on(1) && on(3)) backbeats++;
+      if (k === 0) continue;
+      const a = byBar[k - 1];
+      const b = byBar[k];
+      const match = (x, other, dk) => other.some((y) => y.lane === x.lane && Math.abs(y.beat - x.beat + dk * 4) < 0.06);
+      const s = (b.filter((x) => match(x, a, 1)).length + a.filter((y) => match(y, b, -1)).length) / Math.max(1, a.length + b.length);
+      sim += s;
+      pairs++;
+      if (s > 0.95) repeats++;
+    }
+  }
+  return { similarity: sim / pairs, repeats: repeats / pairs, backbeats: backbeats / bars };
+}
+
+test('groove: at default settings most bars repeat, the figure holds', () => {
+  const s = barStats({}, [1, 2, 3, 4, 5, 6]);
+  assert.ok(s.similarity > 0.88, 'similarity ' + s.similarity);
+  assert.ok(s.repeats > 0.4, 'repeats ' + s.repeats);
+});
+
+test('groove: Memory 100 without breathing locks the groove; Memory 0 does not', () => {
+  const locked = barStats({ memory: 100, breath: 0 }, [1, 2, 3, 4]);
+  const loose = barStats({ memory: 0, breath: 0 }, [1, 2, 3, 4]);
+  assert.ok(locked.repeats > 0.8, 'locked ' + locked.repeats);
+  assert.ok(loose.repeats < locked.repeats - 0.3, `memory 0 ${loose.repeats} vs 100 ${locked.repeats}`);
+});
+
+test('groove: backbeats survive thinning', () => {
+  const s = barStats({ breath: 0, density: 30 }, [1, 2, 3, 4, 5, 6]);
+  assert.ok(s.backbeats > 0.85, 'backbeats ' + s.backbeats);
+});
