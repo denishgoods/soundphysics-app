@@ -7,7 +7,6 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include <cstdio>
-#include <filesystem>
 
 #include "block_scheduler.h"
 
@@ -53,15 +52,15 @@ int fail(const char* what) {
 
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI juceInit;
-    std::filesystem::path path = argc > 1 ? argv[1] : ORGANIC_VST3_PATH;
-    path = std::filesystem::canonical(path);
+    // getChildFile resolves relative paths and "..", like a canonical path.
+    const juce::File path = juce::File::getCurrentWorkingDirectory().getChildFile(argc > 1 ? argv[1] : ORGANIC_VST3_PATH);
 
     juce::VST3PluginFormat format;
     juce::OwnedArray<juce::PluginDescription> types;
-    format.findAllTypesForFile(types, path.string());
-    if (types.isEmpty()) return fail(("no plugin found in " + path.string()).c_str());
+    format.findAllTypesForFile(types, path.getFullPathName());
+    if (types.isEmpty()) return fail(("no plugin found in " + path.getFullPathName()).toRawUTF8());
     std::printf("found %s (%s), %s, midi out: %s\n", types[0]->name.toRawUTF8(), types[0]->pluginFormatName.toRawUTF8(),
-                types[0]->isInstrument ? "instrument" : "effect", path.filename().string().c_str());
+                types[0]->isInstrument ? "instrument" : "effect", path.getFileName().toRawUTF8());
 
     juce::String error;
     auto plugin = format.createInstanceFromDescription(*types[0], kRate, kBlock, error);
