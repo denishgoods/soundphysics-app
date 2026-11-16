@@ -147,6 +147,11 @@ test('bundle: status line proves the script runs and echoes knob moves', () => {
   dev.ctx.param('density', 70.4);
   dev.ctx.param('seed', 12);
   assert.deepEqual(statusOut(), ['Density 70 %', 'Seed 12']);
+  dev.calls.length = 0;
+  dev.ctx.param('mode', 1);
+  assert.deepEqual(statusOut(), ['Mode Irregular']);
+  assert.equal(dev.ctx.engine.mode, 'irregular');
+  dev.ctx.param('mode', 0);
   // while playing it reports bar and note count (after the knob echo expires)
   const fired = runDevice(dev, { ms: 6000, playAtMs: 3 });
   assert.ok(fired.length > 0);
@@ -258,20 +263,21 @@ test('patch: output chain v8 -> unpack -> pipe -> pack -> midiformat -> midiout'
   assert.ok(has(find('midiin'), 0, mo, 0), 'MIDI passes through');
 });
 
-test('patch: the nine parameters match the engine and are saved/automatable', () => {
+test('patch: the parameters match the engine and are saved/automatable', () => {
   const params = patch.boxes.filter((b) => b.box.parameter_enable === 1).map((b) => b.box);
   assert.equal(params.length, E.PARAMS.length);
   E.PARAMS.forEach((p) => {
     const box = params.find((b) => b.varname === p.name);
     assert.ok(box, p.name);
-    assert.equal(box.maxclass, p.type === 'int' ? 'live.numbox' : 'live.dial');
+    assert.equal(box.maxclass, { int: 'live.numbox', enum: 'live.tab', float: 'live.dial' }[p.type]);
     const v = box.saved_attribute_attributes.valueof;
     assert.equal(v.parameter_longname, p.name);
     assert.equal(v.parameter_mmin, p.min);
     assert.equal(v.parameter_mmax, p.max);
     assert.deepEqual(v.parameter_initial, [p.default]);
     assert.equal(v.parameter_initial_enable, 1);
-    assert.equal(v.parameter_type, p.type === 'int' ? 1 : 0);
+    assert.equal(v.parameter_type, { float: 0, int: 1, enum: 2 }[p.type]);
+    if (p.type === 'enum') assert.deepEqual(v.parameter_enum, p.options);
     assert.equal(box.presentation, 1);
     const pre = linesFrom(box.id, 0).map((l) => byId[l.patchline.destination[0]]);
     assert.equal(pre.length, 1);

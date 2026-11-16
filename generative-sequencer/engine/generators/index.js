@@ -14,11 +14,14 @@
 // Modes read shared modulators from state.mods and keep private state in
 // state.gen. The Timeline turns this into the public, final-beat API.
 //
-// Planned: irregular, mathematical, physical.
+// Planned: mathematical, physical.
 
 const organic = require('./organic');
+const irregular = require('./irregular');
 
-const GENERATORS = { organic };
+const GENERATORS = { organic, irregular };
+// Order of the Mode parameter's options.
+const MODES = ['organic', 'irregular'];
 
 function getGenerator(id) {
   const g = GENERATORS[id || 'organic'];
@@ -26,4 +29,4 @@ function getGenerator(id) {
   return g;
 }
 
-module.exports = { GENERATORS, getGenerator };
+module.exports = { GENERATORS, MODES, getGenerator };

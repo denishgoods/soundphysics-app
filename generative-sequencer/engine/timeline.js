@@ -36,6 +36,13 @@ class Timeline {
     this.reset(0);
   }
 
+  // Switch generator mode. The new mode starts from its own initial state;
+  // events already rendered (up to about a beat ahead) still play.
+  setGenerator(generator) {
+    this.gen = generator;
+    generator.init(this.state);
+  }
+
   // Start a new performance at `start`. Notes aimed before `start` are not
   // played; notes aimed at or after it but pulled earlier are played at it.
   reset(start) {

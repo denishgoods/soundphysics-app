@@ -24,6 +24,8 @@ const PARAMS = [
     doc: 'Amount of ghost notes and flams.' },
   { id: 'seed', name: 'Seed', type: 'int', min: 0, max: 9999, default: 1, unit: '',
     doc: 'Random seed. Same seed and settings give the same performance.' },
+  { id: 'mode', name: 'Mode', type: 'enum', options: ['Organic', 'Irregular'], min: 0, max: 1, default: 0, unit: '',
+    doc: 'Pattern type. Organic: a drifting player with memory. Irregular: odd groupings (3+3+2...) that reshape the bar.' },
 ];
 
 const BY_ID = {};
@@ -34,10 +36,14 @@ for (const p of PARAMS) BY_ID[p.id] = p;
 function sanitize(id, value) {
   const spec = BY_ID[id];
   if (!spec) return undefined;
+  if (spec.options && typeof value === 'string') {
+    const i = spec.options.findIndex((o) => o.toLowerCase() === value.trim().toLowerCase());
+    if (i >= 0) return i;
+  }
   const v = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
   if (!Number.isFinite(v)) return undefined;
   const c = Math.min(spec.max, Math.max(spec.min, v));
-  return spec.type === 'int' ? Math.round(c) : c;
+  return spec.type === 'float' ? c : Math.round(c);
 }
 
 function defaults() {
@@ -51,7 +57,7 @@ function normalize(values) {
   const out = {};
   for (const p of PARAMS) {
     const v = values[p.id];
-    out[p.id] = p.type === 'int' ? v >>> 0 : (v - p.min) / (p.max - p.min);
+    out[p.id] = p.type === 'float' ? (v - p.min) / (p.max - p.min) : v >>> 0;
   }
   return out;
 }

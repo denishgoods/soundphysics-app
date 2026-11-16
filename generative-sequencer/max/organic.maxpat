@@ -1378,6 +1378,72 @@
 					],
 					"id": "obj-61"
 				}
+			},
+			{
+				"box": {
+					"maxclass": "live.tab",
+					"numinlets": 1,
+					"numoutlets": 3,
+					"outlettype": [
+						"",
+						"",
+						"float"
+					],
+					"parameter_enable": 1,
+					"num_lines_patching": 1,
+					"num_lines_presentation": 1,
+					"patching_rect": [
+						830,
+						800,
+						140,
+						20
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						130,
+						4,
+						140,
+						18
+					],
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "Mode",
+							"parameter_shortname": "Mode",
+							"parameter_type": 2,
+							"parameter_mmin": 0,
+							"parameter_mmax": 1,
+							"parameter_initial": [
+								0
+							],
+							"parameter_initial_enable": 1,
+							"parameter_info": "Pattern type. Organic: a drifting player with memory. Irregular: odd groupings (3+3+2...) that reshape the bar.",
+							"parameter_enum": [
+								"Organic",
+								"Irregular"
+							]
+						}
+					},
+					"varname": "Mode",
+					"id": "obj-62"
+				}
+			},
+			{
+				"box": {
+					"maxclass": "newobj",
+					"text": "prepend param mode",
+					"numinlets": 1,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					],
+					"patching_rect": [
+						830,
+						880,
+						138,
+						22
+					],
+					"id": "obj-63"
+				}
 			}
 		],
 		"lines": [
@@ -2373,6 +2439,42 @@
 					],
 					"source": [
 						"obj-61",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"destination": [
+						"obj-62",
+						0
+					],
+					"source": [
+						"obj-4",
+						1
+					]
+				}
+			},
+			{
+				"patchline": {
+					"destination": [
+						"obj-63",
+						0
+					],
+					"source": [
+						"obj-62",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"destination": [
+						"obj-2",
+						0
+					],
+					"source": [
+						"obj-63",
 						0
 					]
 				}

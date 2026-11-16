@@ -44,6 +44,8 @@ const EXAMPLES = [
   { file: 'organic-loose-seed7-96bpm.mid', bpm: 96, params: { seed: 7, looseness: 70, drift: 60, swing: 45, ghosts: 60 } },
   { file: 'organic-tight-seed3-124bpm.mid', bpm: 124, params: { seed: 3, looseness: 10, drift: 10, swing: 0, memory: 85, breath: 30 } },
   { file: 'organic-breathing-seed12-100bpm.mid', bpm: 100, params: { seed: 12, density: 45, breath: 100, memory: 50 } },
+  { file: 'irregular-defaults-seed1-120bpm.mid', bpm: 120, params: { seed: 1, mode: 1 } },
+  { file: 'irregular-shifting-seed3-110bpm.mid', bpm: 110, params: { seed: 3, mode: 1, looseness: 80 } },
 ];
 
 function renderExample(ex) {

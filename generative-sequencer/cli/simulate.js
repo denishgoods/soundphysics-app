@@ -57,7 +57,7 @@ function run(args) {
   const bpm = Number(args.bpm) || 120;
   const [num, den] = String(args.meter || '4/4').split('/').map(Number);
   const params = {};
-  for (const p of E.PARAMS) if (args[p.id] !== undefined) params[p.id] = Number(args[p.id]);
+  for (const p of E.PARAMS) if (args[p.id] !== undefined) params[p.id] = p.type === 'enum' ? args[p.id] : Number(args[p.id]);
 
   const engine = E.createEngine({ params, bpm, meter: { num, den } });
   const barLen = engine.meter.barLen;
@@ -87,7 +87,7 @@ function run(args) {
   }
 
   const values = engine.getParams();
-  const desc = E.PARAMS.map((p) => `${p.name} ${values[p.id]}`).join(' · ');
+  const desc = E.PARAMS.map((p) => `${p.name} ${p.options ? p.options[values[p.id]] : values[p.id]}`).join(' · ');
   const st = engine.state;
   const breathAt = (beat) => st.mods.breath.value(beat / barLen);
   const densityAt = (beat) => Math.min(1, st.p.density * Math.max(0, 1 + (breathAt(beat) - 1) * st.p.breath));

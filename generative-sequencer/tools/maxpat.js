@@ -158,7 +158,26 @@ function build(opts) {
       parameter_info: p.doc,
     };
     let ui;
-    if (isInt) {
+    if (p.type === 'enum') {
+      // A tab bar next to the title: one segment per mode.
+      valueof.parameter_type = 2;
+      valueof.parameter_enum = p.options;
+      delete valueof.parameter_unitstyle;
+      ui = add({
+        maxclass: 'live.tab',
+        numinlets: 1,
+        numoutlets: 3,
+        outlettype: ['', '', 'float'],
+        parameter_enable: 1,
+        num_lines_patching: 1,
+        num_lines_presentation: 1,
+        patching_rect: [x, 800, 140, 20],
+        presentation: 1,
+        presentation_rect: [130, 4, 140, 18],
+        saved_attribute_attributes: { valueof },
+        varname: p.name,
+      });
+    } else if (isInt) {
       comment(p.name, x, 800, [px, 28, 50, 18]);
       ui = add({
         maxclass: 'live.numbox',

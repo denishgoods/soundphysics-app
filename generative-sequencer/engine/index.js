@@ -11,18 +11,22 @@ const { PARAMS, PARAM_IDS, sanitize, defaults, normalize, paramSpec } = require(
 const { makeMeter } = require('./meter');
 const { DEFAULT_LANES, ROLES, normalizeLanes } = require('./lanes');
 const { createModulators } = require('./modulators');
-const { GENERATORS, getGenerator } = require('./generators');
+const { GENERATORS, MODES, getGenerator } = require('./generators');
 const { Timeline, MAX_DURATION, MIN_GAP } = require('./timeline');
 const { LookaheadScheduler } = require('./scheduler');
 const prng = require('./prng');
 const noise = require('./modulators/noise');
 
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 
 function createEngine(options) {
   const opts = options || {};
-  const generator = getGenerator(opts.mode);
   const values = defaults();
+  if (opts.mode !== undefined) {
+    const m = typeof opts.mode === 'string' ? MODES.indexOf(opts.mode) : opts.mode;
+    if (m < 0 || !(m < MODES.length)) throw new Error('unknown generator mode: ' + opts.mode);
+    values.mode = m;
+  }
   if (opts.seed !== undefined) values.seed = sanitize('seed', opts.seed);
   if (opts.params) {
     for (const id of Object.keys(opts.params)) {
@@ -30,6 +34,11 @@ function createEngine(options) {
       if (v !== undefined) values[id] = v;
     }
   }
+  if (opts.params && opts.params.mode !== undefined) {
+    const m = sanitize('mode', opts.params.mode);
+    if (m !== undefined) values.mode = m;
+  }
+  let generator = getGenerator(MODES[values.mode]);
   const meterIn = opts.meter || {};
   const state = {
     mode: generator.id,
@@ -54,11 +63,21 @@ function createEngine(options) {
       state.mods = createModulators(v);
       if (generator.reseed) generator.reseed(state);
     }
+    if (id === 'mode' && MODES[v] !== generator.id) {
+      generator = getGenerator(MODES[v]);
+      state.mode = generator.id;
+      timeline.setGenerator(generator);
+    }
   }
 
   return {
     VERSION,
-    mode: generator.id,
+    get mode() {
+      return generator.id;
+    },
+    get generator() {
+      return generator;
+    },
     get lanes() {
       return state.lanes;
     },
@@ -69,7 +88,6 @@ function createEngine(options) {
     get state() {
       return state;
     },
-    generator,
 
     reset(startBeat) {
       if (pendingMeter) {
@@ -126,6 +144,7 @@ module.exports = {
   DEFAULT_LANES,
   ROLES,
   GENERATORS,
+  MODES,
   MAX_DURATION,
   MIN_GAP,
   LookaheadScheduler,

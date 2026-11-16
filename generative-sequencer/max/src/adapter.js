@@ -108,7 +108,7 @@ function param(id, value) {
   }
   var spec = OrganicEngine.paramSpec(String(id));
   var v = engine.getParams()[id];
-  status.note = spec.name + ' ' + Math.round(v) + (spec.unit ? ' ' + spec.unit : '');
+  status.note = spec.name + ' ' + (spec.options ? spec.options[v] : Math.round(v) + (spec.unit ? ' ' + spec.unit : ''));
   status.noteUntil = Date.now() + 1500;
   showStatus(Date.now(), tp.ticks / (tp.resolution > 0 ? tp.resolution : 480));
 }
