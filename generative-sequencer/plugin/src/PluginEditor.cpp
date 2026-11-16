@@ -12,9 +12,20 @@ OrganicEditor::OrganicEditor(OrganicProcessor& p) : AudioProcessorEditor(&p), pr
     look.setColour(juce::Slider::textBoxTextColourId, kText);
     look.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
     look.setColour(juce::Label::textColourId, kText);
+    look.setColour(juce::ComboBox::backgroundColourId, kPanel);
+    look.setColour(juce::ComboBox::textColourId, kText);
+    look.setColour(juce::ComboBox::outlineColourId, kPanel.brighter(0.2f));
+    look.setColour(juce::PopupMenu::backgroundColourId, kPanel);
     setLookAndFeel(&look);
 
     for (const auto& s : organic::kParams) {
+        if (s.options) {
+            mode.addItemList(juce::StringArray::fromTokens(s.options, "|", ""), 1);
+            mode.setTooltip("Pattern type");
+            addAndMakeVisible(mode);
+            modeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(proc.params, s.id, mode);
+            continue;
+        }
         Knob k;
         k.slider = std::make_unique<juce::Slider>(juce::Slider::RotaryHorizontalVerticalDrag, juce::Slider::TextBoxBelow);
         k.slider->setTextBoxStyle(juce::Slider::TextBoxBelow, false, kKnobW, 18);
@@ -31,7 +42,8 @@ OrganicEditor::OrganicEditor(OrganicProcessor& p) : AudioProcessorEditor(&p), pr
     status.setFont(juce::FontOptions(13.0f));
     addAndMakeVisible(status);
 
-    setSize(kPad * 2 + kKnobW * organic::kNumParams + 6 * (organic::kNumParams - 1), 190);
+    const int n = static_cast<int>(knobs.size());
+    setSize(kPad * 2 + kKnobW * n + 6 * (n - 1), 190);
     startTimerHz(10);
     timerCallback();
 }
@@ -45,7 +57,7 @@ void OrganicEditor::paint(juce::Graphics& g) {
     g.fillAll(kBg);
     g.setColour(kText);
     g.setFont(juce::FontOptions(16.0f, juce::Font::bold));
-    g.drawText("ORGANIC", kPad, 8, 200, 22, juce::Justification::centredLeft);
+    g.drawText("ORGANIC", kPad, 8, 100, 22, juce::Justification::centredLeft);
     g.setColour(kMuted);
     g.setFont(juce::FontOptions(12.0f));
     g.drawText(juce::String("generative drums  v") + organic::kVersion, getWidth() - 220 - kPad, 8, 220, 22,
@@ -60,6 +72,7 @@ void OrganicEditor::resized() {
         x += kKnobW + 6;
     }
     status.setBounds(kPad, getHeight() - 32, getWidth() - kPad * 2, 22);
+    mode.setBounds(120, 8, 130, 22);
 }
 
 void OrganicEditor::timerCallback() {

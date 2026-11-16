@@ -27,6 +27,8 @@ private:
         std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attachment;
     };
     std::vector<Knob> knobs;
+    juce::ComboBox mode;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modeAttachment;
     juce::Label status;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(OrganicEditor)

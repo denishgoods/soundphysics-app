@@ -634,15 +634,16 @@ MotifMemory::Motif* MotifMemory::store(std::vector<Note> notes, int bar) {
 // ---- params.js -------------------------------------------------------------
 
 const ParamSpec kParams[kNumParams] = {
-    {"density", "Density", false, 0, 100, 55, "%"},
-    {"looseness", "Looseness", false, 0, 100, 25, "%"},
-    {"drift", "Drift", false, 0, 100, 25, "%"},
-    {"swing", "Swing", false, 0, 100, 20, "%"},
-    {"breath", "Breath", false, 0, 100, 40, "%"},
-    {"memory", "Memory", false, 0, 100, 65, "%"},
-    {"accent", "Accent", false, 0, 100, 50, "%"},
-    {"ghosts", "Ghosts", false, 0, 100, 35, "%"},
-    {"seed", "Seed", true, 0, 9999, 1, ""},
+    {"density", "Density", false, 0, 100, 55, "%", nullptr},
+    {"looseness", "Looseness", false, 0, 100, 25, "%", nullptr},
+    {"drift", "Drift", false, 0, 100, 25, "%", nullptr},
+    {"swing", "Swing", false, 0, 100, 20, "%", nullptr},
+    {"breath", "Breath", false, 0, 100, 40, "%", nullptr},
+    {"memory", "Memory", false, 0, 100, 65, "%", nullptr},
+    {"accent", "Accent", false, 0, 100, 50, "%", nullptr},
+    {"ghosts", "Ghosts", false, 0, 100, 35, "%", nullptr},
+    {"seed", "Seed", true, 0, 9999, 1, "", nullptr},
+    {"mode", "Mode", true, 0, 1, 0, "", "Organic|Irregular"},
 };
 
 int paramIndex(const std::string& id) {
@@ -654,6 +655,8 @@ int paramIndex(const std::string& id) {
 
 namespace {
 constexpr int32_t kSaltPlan = 0x91a7;
+constexpr int32_t kSaltPlanIrregular = 0x1a2b;
+constexpr int32_t kSaltFigure = 0x3c4d;
 constexpr int32_t kSaltRender = 0x4e7d;
 constexpr int32_t kSaltFlam = 0xf1a3;
 constexpr double kMaxDev = 0.4;
@@ -662,6 +665,299 @@ constexpr double kTimelineMaxDev = kMaxDev + 0.09;
 constexpr double kMinGap = 0.02;
 constexpr double kRetain = 4;
 } // namespace
+
+// ---- generators/irregular/index.js ------------------------------------------
+
+namespace {
+double unitOf(const Meter& m) { return m.den >= 8 ? m.beatLen : 0.25; }
+int unitsPerBar(const Meter& m) { return std::max(1, static_cast<int>(jsRound(m.barLen / unitOf(m)))); }
+double sizeWeight(int s, double L) {
+    if (s == 3) return 4;
+    if (s == 2) return 3;
+    if (s == 4) return 0.8;
+    return 0.15 + 0.8 * L;
+}
+int32_t noteIdFor(int figId, int c, int li, int kind) {
+    return static_cast<int32_t>(hash32({0x3c4d, figId, c, li * 4 + kind}) >> 1);
+}
+} // namespace
+
+std::vector<int> newGrouping(Rng& rng, int U, double L) {
+    int cycle = U;
+    if (U >= 6 && rng.chance(0.2 + 0.5 * L)) {
+        static const int kDeltas[] = {-3, -2, -1, 1, 2, 3};
+        cycle = std::max(5, U + kDeltas[rng.intBelow(6)]);
+    } else if (U <= 8 && rng.chance(0.3)) {
+        cycle = 2 * U;
+    }
+    std::vector<int> groups;
+    for (int attempt = 0; attempt < 4; attempt++) {
+        groups.clear();
+        int rem = cycle;
+        while (rem > 0) {
+            std::vector<int> sizes;
+            for (int s : {2, 3, 4, 5}) if (s <= rem && rem - s != 1) sizes.push_back(s);
+            if (sizes.empty()) {
+                groups.push_back(rem);
+                break;
+            }
+            std::vector<double> w;
+            for (int s : sizes) w.push_back(sizeWeight(s, L));
+            int s = sizes[rng.weighted(w)];
+            groups.push_back(s);
+            rem -= s;
+        }
+        bool odd = false;
+        for (int g : groups) if (g == 3 || g == 5) odd = true;
+        if (odd) break;
+    }
+    return groups;
+}
+
+std::vector<int> varyGrouping(const std::vector<int>& groups, Rng& rng) {
+    std::vector<int> g = groups;
+    int op = rng.intBelow(4);
+    int n = static_cast<int>(g.size());
+    if (op == 0) {
+        std::vector<int> idx;
+        for (int i = 0; i + 1 < n; i++) if (g[i] != g[i + 1]) idx.push_back(i);
+        if (!idx.empty()) {
+            int i = idx[rng.intBelow(static_cast<double>(idx.size()))];
+            std::swap(g[i], g[i + 1]);
+            return g;
+        }
+    } else if (op == 1) {
+        std::vector<int> fours, pairs;
+        for (int i = 0; i < n; i++) {
+            if (g[i] == 4) fours.push_back(i);
+            if (i + 1 < n && g[i] == 2 && g[i + 1] == 2) pairs.push_back(i);
+        }
+        if (!fours.empty() || !pairs.empty()) {
+            if (!fours.empty() && (pairs.empty() || rng.chance(0.5))) {
+                int i = fours[rng.intBelow(static_cast<double>(fours.size()))];
+                g[i] = 2;
+                g.insert(g.begin() + i + 1, 2);
+            } else {
+                int i = pairs[rng.intBelow(static_cast<double>(pairs.size()))];
+                g[i] = 4;
+                g.erase(g.begin() + i + 1);
+            }
+            return g;
+        }
+    } else if (op == 2) {
+        for (int i = 0; i + 1 < n; i++) {
+            if (g[i] == 3 && g[i + 1] == 3) {
+                g[i] = 2;
+                g[i + 1] = 2;
+                g.insert(g.begin() + i + 2, 2);
+                return g;
+            }
+            if (i + 2 < n && g[i] == 2 && g[i + 1] == 2 && g[i + 2] == 2) {
+                g[i] = 3;
+                g[i + 1] = 3;
+                g.erase(g.begin() + i + 2);
+                return g;
+            }
+        }
+    }
+    std::rotate(g.begin(), g.begin() + 1, g.end());
+    return g;
+}
+
+std::vector<Note> Engine::figureNotes(const Figure& fig, int phase) {
+    const Meter& m = meterNow;
+    double unit = unitOf(m);
+    int U = unitsPerBar(m);
+    std::vector<int> starts;
+    int cycle = 0;
+    for (int g : fig.groups) {
+        starts.push_back(cycle);
+        cycle += g;
+    }
+    double L = p.looseness;
+    struct Cand { double imp; Note note; };
+    std::vector<std::vector<Cand>> mains(laneList.size()), ghosts(laneList.size());
+
+    for (int i = 0; i < U; i++) {
+        int c = (phase + i) % cycle;
+        size_t gj = 0;
+        while (gj + 1 < starts.size() && starts[gj + 1] <= c) gj++;
+        int off = c - starts[gj];
+        int len = fig.groups[gj];
+        bool isStart = off == 0;
+        bool cycleStart = c == 0;
+        Rng r(hash32({u2i(seed), kSaltFigure, fig.id, c}));
+        double base = i * unit;
+        for (int li = 0; li < static_cast<int>(laneList.size()); li++) {
+            Role role = laneList[li].role;
+            const RoleProfile& rp = profile(role);
+            auto main = [&](double imp, double w) {
+                double disp = r.gauss() * L * 0.02;
+                double accent = r.chance(rp.accentP * (isStart ? 1 : 0.3)) ? r.range(0.5, 1) : 0;
+                bool flam = accent > 0 && rp.flam > 0 && r.chance(rp.flam);
+                double impR = imp * r.range(0.9, 1.1);
+                Note n;
+                n.id = noteIdFor(fig.id, c, li, 0);
+                n.lane = li;
+                n.pos = clampPos(base + disp, m.barLen);
+                n.att = base;
+                n.fam = Family::Main;
+                n.kind = Kind::Main;
+                n.accent = accent;
+                n.flam = flam;
+                n.w = w;
+                mains[li].push_back({impR, n});
+            };
+            auto ghost = [&](double imp) {
+                double impR = imp * r.range(0.9, 1.1);
+                Note n;
+                n.id = noteIdFor(fig.id, c, li, 1);
+                n.lane = li;
+                n.pos = base;
+                n.att = base;
+                n.fam = Family::Main;
+                n.kind = Kind::Ghost;
+                ghosts[li].push_back({impR, n});
+            };
+            if (role == Role::Anchor) {
+                if (isStart) main(cycleStart ? 1 : (gj % 2 == 0 ? (len >= 3 ? 0.75 : 0.55) : 0.3), cycleStart ? 1 : 0.85);
+                else if (off == 2 && len >= 4) main(0.2, 0.5);
+            } else if (role == Role::Backbeat) {
+                if (isStart && gj % 2 == 1) main(0.9, 0.85);
+                else if (isStart && !cycleStart) main(0.12, 0.7);
+                else if (!isStart && off == len - 1) ghost(0.6);
+                else if (!isStart && off == 1 && len >= 3) ghost(0.35);
+            } else if (role == Role::Pulse) {
+                main(isStart ? 0.95 : (off % 2 == 0 ? 0.6 : 0.3), isStart ? 0.9 : (off % 2 == 0 ? 0.45 : 0.25));
+            } else if (!cycleStart) {
+                if (off == len - 1 && len >= 3) main(0.6, 0.5);
+                else if (off == 1 && len == 2) main(0.3, 0.5);
+            }
+        }
+    }
+
+    std::vector<Note> out;
+    for (size_t li = 0; li < laneList.size(); li++) {
+        double curve = profile(laneList[li].role).prioCurve;
+        for (int which = 0; which < 2; which++) {
+            std::vector<Cand>& list = which == 0 ? mains[li] : ghosts[li];
+            double cv = which == 0 ? curve : 1;
+            std::vector<size_t> order(list.size());
+            for (size_t i = 0; i < order.size(); i++) order[i] = i;
+            std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+                if (list[a].imp != list[b].imp) return list[a].imp > list[b].imp;
+                return a < b;
+            });
+            for (size_t rank = 0; rank < order.size(); rank++) {
+                Note n = list[order[rank]].note;
+                n.prio = std::min(0.999, std::max(0.001, std::pow((rank + 0.5) / order.size(), cv)));
+                out.push_back(n);
+            }
+        }
+    }
+    return out;
+}
+
+namespace {
+std::vector<Note> varyBar(const std::vector<Note>& notes, double amount, Rng& rng) {
+    std::vector<Note> out;
+    for (const auto& n : notes) {
+        if (n.kind == Kind::Main && n.prio > 0.3 && rng.chance(0.22 * amount)) continue;
+        if (n.kind == Kind::Ghost && rng.chance(0.3 * amount)) continue;
+        Note c = n;
+        if (c.kind == Kind::Main && rng.chance(0.12 * amount)) c.accent = c.accent > 0 ? 0 : rng.range(0.5, 1);
+        out.push_back(c);
+    }
+    return out;
+}
+} // namespace
+
+std::vector<Note> Engine::irregularFill(std::vector<Note> notes, const PhraseInfo& info, Rng& rng, const Figure& fig, int phase) {
+    if (!info.isLast) return notes;
+    if (!rng.chance(0.2 + (info.shape == Shape::Build ? 0.35 : 0))) return notes;
+    int li = -1;
+    for (int i = 0; i < static_cast<int>(laneList.size()); i++) if (laneList[i].role == Role::Backbeat) { li = i; break; }
+    if (li < 0)
+        for (int i = 0; i < static_cast<int>(laneList.size()); i++) if (laneList[i].role == Role::Color) { li = i; break; }
+    if (li < 0) return notes;
+    const Meter& m = meterNow;
+    double unit = unitOf(m);
+    int U = unitsPerBar(m);
+    double spanEnd = m.barLen * (1 - info.restInBar);
+    std::vector<int> starts;
+    int cycle = 0;
+    for (int g : fig.groups) {
+        starts.push_back(cycle);
+        cycle += g;
+    }
+    double from = -1;
+    for (int i = 0; i < U; i++) {
+        if (i * unit >= spanEnd - 2 * unit) break;
+        if (std::find(starts.begin(), starts.end(), (phase + i) % cycle) != starts.end()) from = i * unit;
+    }
+    if (from < 0) return notes;
+    double step = unit / 2;
+    int count = static_cast<int>(jsRound((spanEnd - from) / step));
+    double prio = 0.2 + 0.4 * rng.next();
+    std::vector<Note> kept;
+    for (const auto& n : notes)
+        if (n.lane != li || n.pos < from || n.pos >= spanEnd) kept.push_back(n);
+    for (int i = 0; i < count; i++) {
+        double u = static_cast<double>(i) / count;
+        Note f;
+        f.id = rng.intBelow(2147483647.0);
+        f.lane = li;
+        f.pos = from + i * step;
+        f.att = from + i * step;
+        f.fam = Family::Main;
+        f.kind = Kind::Fill;
+        f.prio = prio;
+        f.accent = i == count - 1 ? 0.6 : 0;
+        f.fillProg = u;
+        kept.push_back(f);
+    }
+    return kept;
+}
+
+void Engine::storeFigure(std::vector<int> groups) {
+    auto fig = std::make_shared<Figure>(Figure{std::move(groups), figNextId++});
+    figBank.push_back(fig);
+    if (figBank.size() > 4) figBank.pop_front();
+    figCurrent = fig;
+}
+
+std::vector<Note> Engine::irregularPlan(int, const PhraseInfo& info, Rng& rng) {
+    double m = p.memory;
+    double loose = 1 - m;
+    int U = unitsPerBar(meterNow);
+    if (!figCurrent) {
+        storeFigure(newGrouping(rng, U, p.looseness));
+        figPhase = 0;
+    } else {
+        double pChange = info.isFirst ? 0.85 * std::pow(loose, 1.2) : 0.6 * std::pow(loose, 2.5);
+        if (rng.chance(pChange)) {
+            std::vector<std::shared_ptr<Figure>> others;
+            for (auto& b : figBank) if (b != figCurrent) others.push_back(b);
+            double r = rng.next();
+            if (!others.empty() && r < 0.3) figCurrent = others[rng.intBelow(static_cast<double>(others.size()))];
+            else if (r < 0.3 + 0.7 * (0.4 + 0.6 * m)) storeFigure(varyGrouping(figCurrent->groups, rng));
+            else storeFigure(newGrouping(rng, U, p.looseness));
+            figPhase = 0;
+        }
+    }
+    if (info.isFirst) figPhase = 0;
+    std::shared_ptr<Figure> fig = figCurrent;
+    int phase = figPhase;
+    int cycle = 0;
+    for (int g : fig->groups) cycle += g;
+
+    std::vector<Note> notes = figureNotes(*fig, phase);
+    if (info.isLast) notes = varyBar(notes, 0.12 + 0.35 * loose, rng);
+    else if (!rng.chance(0.45 + 0.5 * m)) notes = varyBar(notes, 0.03 + 0.3 * loose, rng);
+    notes = irregularFill(std::move(notes), info, rng, *fig, phase);
+    figPhase = (phase + U) % cycle;
+    return notes;
+}
 
 Engine::Engine() {
     for (int i = 0; i < kNumParams; i++) values[i] = kParams[i].def;
@@ -698,6 +994,7 @@ bool Engine::setParam(int index, double value) {
     double v = std::min(s.max, std::max(s.min, value));
     if (s.isInt) v = jsRound(v);
     values[index] = v;
+    int prevMode = p.mode;
     p.density = values[0] / 100;
     p.looseness = values[1] / 100;
     p.drift = values[2] / 100;
@@ -707,11 +1004,16 @@ bool Engine::setParam(int index, double value) {
     p.accent = values[6] / 100;
     p.ghosts = values[7] / 100;
     p.seed = static_cast<uint32_t>(values[8]);
+    p.mode = static_cast<int>(values[kModeParam]);
     if (index == 8 && p.seed != seed && breath) {
         seed = p.seed;
         buildModulators();
         memory = MotifMemory();
+        figBank.clear();
+        figCurrent.reset();
     }
+    // Switching mode: the new mode starts from its own initial state.
+    if (index == kModeParam && p.mode != prevMode && breath) genInit();
     return true;
 }
 
@@ -733,6 +1035,10 @@ void Engine::setMeter(int num, int den) {
 
 void Engine::genInit() {
     memory = MotifMemory();
+    figBank.clear();
+    figCurrent.reset();
+    figPhase = 0;
+    figNextId = 1;
     plans.clear();
     nextBar = 0;
 }
@@ -780,12 +1086,17 @@ std::vector<Note> Engine::addFill(std::vector<Note> notes, const PhraseInfo& inf
     return kept;
 }
 
-Engine::Plan Engine::makePlan(int k) {
-    Rng rng(hash32({u2i(seed), kSaltPlan, k}));
-    PhraseInfo info = breath->info(k);
+std::vector<Note> Engine::organicPlan(int k, const PhraseInfo& info, Rng& rng) {
     Ctx ctx{&meterNow, &laneList, &p};
     std::vector<Note> notes = memory.next(k, info, rng, ctx);
-    notes = addFill(std::move(notes), info, rng);
+    return addFill(std::move(notes), info, rng);
+}
+
+Engine::Plan Engine::makePlan(int k) {
+    bool organicMode = mode() == Mode::Organic;
+    Rng rng(hash32({u2i(seed), organicMode ? kSaltPlan : kSaltPlanIrregular, k}));
+    PhraseInfo info = breath->info(k);
+    std::vector<Note> notes = organicMode ? organicPlan(k, info, rng) : irregularPlan(k, info, rng);
     std::stable_sort(notes.begin(), notes.end(), [](const Note& a, const Note& b) {
         if (a.pos != b.pos) return a.pos < b.pos;
         if (a.lane != b.lane) return a.lane < b.lane;
@@ -842,7 +1153,7 @@ void Engine::render(const Note& c, int k, double barStart, std::vector<Event>& o
     double v;
     if (c.kind == Kind::Ghost) v = rp.ghostVel * (0.85 + 0.3 * r.next()) * (1 - 0.25 * A);
     else if (c.kind == Kind::Fill) v = rp.velocity * (0.45 + 0.5 * c.fillProg) * (1 + 0.2 * A * c.fillProg);
-    else v = rp.velocity * (1 + A * 0.55 * (metricWeight(m, c.pos) - 0.45));
+    else v = rp.velocity * (1 + A * 0.55 * ((c.w >= 0 ? c.w : metricWeight(m, c.pos)) - 0.45));
     if (c.accent > 0) v += A * 26 * c.accent;
     v *= 1 + p.breath * 0.15 * (std::min(env, 1.3) - 0.9);
     v += 7 * noise("vel", li, 3, 0.6)(t / 2) + 3 * (0.5 + p.looseness) * r.gauss();

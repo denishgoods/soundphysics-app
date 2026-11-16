@@ -11,6 +11,7 @@
 #pragma once
 
 #include <cstdint>
+#include <deque>
 #include <map>
 #include <memory>
 #include <string>
@@ -18,7 +19,7 @@
 
 namespace organic {
 
-constexpr const char* kVersion = "0.2.0";
+constexpr const char* kVersion = "0.3.0";
 
 // ---- prng -------------------------------------------------------------
 uint32_t hash32(std::initializer_list<int32_t> args);
@@ -112,14 +113,18 @@ struct Lane { std::string name; int note; Role role; double density; };
 std::vector<Lane> defaultLanes();
 
 // ---- params -----------------------------------------------------------
-struct ParamSpec { const char* id; const char* name; bool isInt; double min, max, def; const char* unit; };
-constexpr int kNumParams = 9;
+// isInt covers enums too; `options` is "A|B|..." for enums, else nullptr.
+struct ParamSpec { const char* id; const char* name; bool isInt; double min, max, def; const char* unit; const char* options; };
+constexpr int kNumParams = 10;
+constexpr int kModeParam = 9;
+enum class Mode { Organic = 0, Irregular = 1 };
 extern const ParamSpec kParams[kNumParams];
 int paramIndex(const std::string& id);
 
 struct Normalized {
     double density, looseness, drift, swing, breath, memory, accent, ghosts;
     uint32_t seed;
+    int mode;
 };
 
 // ---- notes, plans, events ---------------------------------------------
@@ -134,6 +139,7 @@ struct Note {
     double prio = 0.5, accent = 0;
     bool flam = false;
     double fillProg = 0;
+    double w = -1;  // emphasis 0..1; < 0 = use the metric weight of pos
     int uid = 0;
 };
 
@@ -167,6 +173,7 @@ public:
     void setMeter(int num, int den);          // applied at the next reset
     const std::vector<Lane>& lanes() const { return laneList; }
     const Meter& meter() const { return meterNow; }
+    Mode mode() const { return static_cast<Mode>(p.mode); }
 
 private:
     struct Plan { int k; std::vector<Note> notes; PhraseInfo info; };
@@ -181,7 +188,14 @@ private:
     std::vector<Event> genGenerate(double start, double end);
     const Plan& getPlan(int k);
     Plan makePlan(int k);
+    std::vector<Note> organicPlan(int k, const PhraseInfo& info, Rng& rng);
     std::vector<Note> addFill(std::vector<Note> notes, const PhraseInfo& info, Rng& rng);
+    // irregular mode (generators/irregular/index.js)
+    struct Figure { std::vector<int> groups; int id; };
+    std::vector<Note> irregularPlan(int k, const PhraseInfo& info, Rng& rng);
+    std::vector<Note> figureNotes(const Figure& fig, int phase);
+    std::vector<Note> irregularFill(std::vector<Note> notes, const PhraseInfo& info, Rng& rng, const Figure& fig, int phase);
+    void storeFigure(std::vector<int> groups);
     void render(const Note& c, int k, double barStart, std::vector<Event>& out);
 
     // timeline
@@ -206,6 +220,10 @@ private:
     std::map<std::string, Noise> noises;
 
     MotifMemory memory;
+    std::deque<std::shared_ptr<Figure>> figBank;
+    std::shared_ptr<Figure> figCurrent;
+    int figPhase = 0;
+    int figNextId = 1;
     std::map<int, Plan> plans;
     int nextBar = 0;
 
@@ -215,3 +233,9 @@ private:
 };
 
 } // namespace organic
+
+namespace organic {
+// Exposed for tests (irregular mode groupings).
+std::vector<int> newGrouping(Rng& rng, int U, double looseness);
+std::vector<int> varyGrouping(const std::vector<int>& groups, Rng& rng);
+}

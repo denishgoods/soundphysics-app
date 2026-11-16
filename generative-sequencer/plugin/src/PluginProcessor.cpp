@@ -13,7 +13,11 @@ juce::AudioProcessor::BusesProperties OrganicProcessor::buses() {
 juce::AudioProcessorValueTreeState::ParameterLayout OrganicProcessor::createLayout() {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
     for (const auto& s : organic::kParams) {
-        if (s.isInt) {
+        if (s.options) {
+            layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID{s.id, 1}, s.name,
+                                                                    juce::StringArray::fromTokens(s.options, "|", ""),
+                                                                    static_cast<int>(s.def)));
+        } else if (s.isInt) {
             layout.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID{s.id, 1}, s.name, static_cast<int>(s.min),
                                                                  static_cast<int>(s.max), static_cast<int>(s.def)));
         } else {

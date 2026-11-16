@@ -73,6 +73,7 @@ int main(int argc, char** argv) {
     std::printf("  host sees %d parameters\n", ps.size());
     if (ps.size() > organic::kNumParams + 2) return fail("too many parameters (MIDI CC emulation should be off)");
     juce::AudioProcessorParameter* density = nullptr;
+    juce::AudioProcessorParameter* modeParam = nullptr;
     for (const auto& spec : organic::kParams) {
         juce::AudioProcessorParameter* found = nullptr;
         for (auto* p : ps)
@@ -80,6 +81,7 @@ int main(int argc, char** argv) {
         if (!found) return fail((std::string("missing parameter ") + spec.name).c_str());
         std::printf("  %s = %s\n", spec.name, found->getCurrentValueAsText().toRawUTF8());
         if (std::string(spec.id) == "density") density = found;
+        if (std::string(spec.id) == "mode") modeParam = found;
     }
 
     SimPlayHead head;
@@ -99,6 +101,10 @@ int main(int argc, char** argv) {
         if (b == 300) {
             density->setValueNotifyingHost(0.8f); // normalised: 80 of 0..100
             refEngine.setParam("density", 80);
+        }
+        if (b == 1200) {
+            modeParam->setValueNotifyingHost(1.0f); // Irregular
+            refEngine.setParam("mode", 1);
         }
         organic::HostTransport t = transportFor(b, song);
         head.info = {};

@@ -88,6 +88,19 @@ CASES.push({ seed: 3, bars: 24, bpm: 120, meter: [4, 4], start: 9.5, window: 0.2
 for (const meter of [[3, 4], [6, 8], [7, 8], [5, 4]]) {
   CASES.push({ seed: 4, bars: 24, bpm: 110, meter, start: 0, window: 0.5, params: { looseness: 60 }, changes: [] });
 }
+// Irregular mode
+for (const seed of [1, 2, 3, 7, 12, 99, 1234]) {
+  CASES.push({ seed, bars: 48, bpm: 120, meter: [4, 4], start: 0, window: 0.25, params: { mode: 1 }, changes: [] });
+}
+CASES.push({ seed: 5, bars: 48, bpm: 100, meter: [4, 4], start: 0, window: 0.37, params: { mode: 1, looseness: 95, memory: 5, breath: 100, ghosts: 90 }, changes: [] });
+CASES.push({ seed: 6, bars: 32, bpm: 130, meter: [4, 4], start: 6.5, window: 0.9, params: { mode: 1, memory: 100, density: 100 }, changes: [] });
+for (const meter of [[3, 4], [7, 8], [6, 8], [5, 4]]) {
+  CASES.push({ seed: 8, bars: 24, bpm: 110, meter, start: 0, window: 0.5, params: { mode: 1, looseness: 70 }, changes: [] });
+}
+// switching mode during a performance
+CASES.push({ seed: 9, bars: 40, bpm: 120, meter: [4, 4], start: 0, window: 0.2, params: {}, changes: [
+  { at: 30, id: 'mode', value: 1 }, { at: 70, id: 'seed', value: 77 }, { at: 100, id: 'mode', value: 0 }, { at: 130, id: 'mode', value: 1 },
+] });
 
 test('C++ engine matches the JS engine event for event', (t) => {
   if (!build(BIN, ['plugin/tests/engine_dump.cpp', 'plugin/engine/organic.cpp'])) {
