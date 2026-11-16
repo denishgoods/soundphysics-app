@@ -11,6 +11,7 @@
     "test": "node --test test/*.test.js",
     "build": "node tools/build.js",
     "sim": "node cli/simulate.js",
-    "compare": "node cli/compare.js"
+    "compare": "node cli/compare.js",
+    "render": "node cli/render-audio.js"
   }
 }

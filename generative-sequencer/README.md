@@ -58,7 +58,9 @@ npm run sim -- --bars 32 --seed 7 --bpm 110 --out out/seed7.mid --html out/seed7
 npm run build                                    # regenerate max/ and examples/
 ```
 
-`npm run sim -- --help` lists all options. Every parameter can be passed as
+`npm run sim -- --help` lists all options. To hear it without a DAW,
+`npm run render -- --mode irregular --bars 16 --out out/irregular.wav --mp3` plays the
+performance through a small synthesized drum kit. Every parameter can be passed as
 `--density 70` etc., in the same units as the device.
 
 ## What "organic" means here
