@@ -5,8 +5,9 @@ A generative drum sequencer, available two ways:
 - a **Max for Live MIDI Effect** for Ableton Live 12 / Max 9 (`max/`), and
 - a **native plugin** for any DAW: VST3, plus an AU MIDI FX for Logic (`plugin/`).
 
-This is the first of several generator modes ("organic"; irregular, mathematical and
-physical are planned). The engine is pure JavaScript (Node and Max's `[v8]`), with a
+Two pattern modes so far, chosen with the **Mode** parameter: **Organic** (a drifting
+player with memory) and **Irregular** (odd groupings that reshape the bar). Mathematical and
+physical modes are planned. The engine is pure JavaScript (Node and Max's `[v8]`), with a
 C++ port for the plugin. Both play the same performance for the same seed and settings,
 and a parity test keeps them in step.
 
@@ -22,7 +23,9 @@ engine/                 pure JS, deterministic, no dependencies, no host APIs
     breath.js           phrase-level breathing envelope
   generators/
     index.js            mode registry + the generator interface
-    organic/            mode 1: motif memory, fills, per-note rendering
+    shared.js           bar-plan cache and per-note rendering, used by every mode
+    organic/            mode 1: motif memory, fills
+    irregular/          mode 2: groupings of 2/3/4/5 units, cycles across the bar line
   timeline.js           window logic shared by all modes
   scheduler.js          look-ahead scheduler (host-agnostic)
 max/
@@ -85,9 +88,34 @@ All are `live.dial` objects (Seed is a `live.numbox`), saved with the set and au
 | Accent | 0–100 % | 50 | Velocity contrast. |
 | Ghosts | 0–100 % | 35 | Ghost notes and flams. |
 | Seed | 0–9999 | 1 | Random seed. |
+| Mode | Organic / Irregular | Organic | Pattern type (see below). A tab in the Max device, a drop-down in the plugin. |
 
 Knob changes take effect within about 1–2 beats: the timeline renders up to a beat ahead and
 never changes notes it has already rendered (see below).
+
+## Irregular mode
+
+The bar is counted in units (16ths in x/4, 8ths in x/8). A **grouping** splits a cycle of
+units into groups of 2, 3, 4 and occasionally 5, e.g. `3+3+2`, `2+3+2+2+3+2+2` or `2+2+3`.
+- **Accents follow the groups, not the beat.** The kick takes group starts, the snare
+  answers on alternate groups, hats accent every group start, and perc plays pickups into
+  the next group.
+- **The cycle can be longer or shorter than the bar.** For example, 17 units over 16-unit
+  bars slides one unit per bar against the bar line, and realigns at every phrase start.
+- **The knobs mean the same things where they can.** Swing, Drift, Ghosts, Accent, Breath
+  and Density work as in Organic, through the shared renderer.
+  - *Looseness* also sets how often groupings cross the bar line and how often 5s appear:
+    about 28% of bars at 25%, 57% at 80%.
+  - *Memory* sets how long a grouping holds. Changes happen at phrase starts: back to an
+    earlier grouping, a variation (3+2 becomes 2+3, 4 becomes 2+2, 3+3 becomes 2+2+2), or a
+    new one. With low Memory, changes also happen mid-phrase.
+- **Phrase ends** get a roll through the last group.
+- **A bar-aligned grouping repeats exactly**, because the notes at each cycle position
+  depend only on the seed, the grouping and the position.
+
+Try it: `npm run sim -- --mode irregular --bars 16 --seed 3 --looseness 80`, or the
+`examples/irregular-*.mid` files. Switching Mode mid-performance takes effect within a
+beat or two.
 
 ### Lanes
 
@@ -103,7 +131,9 @@ These match a standard Drum Rack layout. To change them, edit `DEFAULT_LANES` in
 
 ## Architecture
 
-**Generator interface** (`engine/generators/index.js`). A mode is an object with
+**Generator interface** (`engine/generators/index.js`). Adding a mode means writing the
+bar planner; `generators/shared.js` provides the plan cache and the renderer. Irregular is
+about 300 lines. A mode is an object with
 `id`, `maxDeviation`, `init(state)`, optional `reseed(state)` and
 `generate(startBeat, endBeat, state) -> Event[]`, where
 `Event = { beat, lane, note, velocity, duration }` (beats). `generate` is called on
@@ -167,7 +197,7 @@ The binaries are universal (Apple Silicon and Intel) and ad-hoc signed, not nota
 - A loop the host reports is split exactly at the loop end. A jump while playing (including
   a loop the host doesn't report) continues the performance at the new position, so loops
   keep evolving.
-- The editor has the same nine knobs and a status line (waiting / ready / playing, bar,
+- The editor has the same knobs, a Mode drop-down and a status line (waiting / ready / playing, bar,
   note count).
 
 **Build it yourself**
@@ -225,7 +255,7 @@ build is provided: the engine uses ES2015+ syntax.
    the background) and tick **Open in Presentation**.
 8. Save and close the editor. The device shows nine controls.
 9. In the Max Console (*Window > Max Console*) you should see
-   `organic: engine 0.2.0 (organic) ready`. If you see that `organic.js` can't be found,
+   `organic: engine 0.3.0 (organic) ready`. If you see that `organic.js` can't be found,
    the script isn't in the same folder as the `.amxd` (step 1).
 10. To share the device or move it around, click **Freeze Device** (snowflake icon at the
     bottom of the editor) and save. This embeds `organic.js` in the `.amxd`.
