@@ -2,10 +2,15 @@ ORGANIC - generative drum sequencer (plugin)
 =============================================
 
 What's in this folder
+  Install Organic.command   installs both plugins (see below)
   Organic.vst3              for Ableton Live, Bitwig, Reaper, Cubase, Studio One...
   Organic MIDI FX.component  for Logic Pro (MIDI FX slot)
 
 Install (macOS)
+  Easiest: right-click "Install Organic.command" > Open (double-click works
+  after the first time). It does steps 1 and 2 below for you.
+
+  By hand:
   1. Copy Organic.vst3 to             ~/Library/Audio/Plug-Ins/VST3/
      Copy Organic MIDI FX.component to ~/Library/Audio/Plug-Ins/Components/
      (In Finder: Go > Go to Folder..., paste the path. Create the folder if missing.)

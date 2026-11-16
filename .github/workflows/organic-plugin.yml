@@ -67,6 +67,8 @@ jobs:
           cp -R "build/Organic_artefacts/Release/VST3/Organic.vst3" dist/Organic/
           cp -R "build/OrganicMidiFx_artefacts/Release/AU/Organic MIDI FX.component" dist/Organic/
           cp plugin/INSTALL.txt dist/Organic/
+          cp "plugin/Install Organic.command" dist/Organic/
+          chmod +x "dist/Organic/Install Organic.command"
           cd dist && ditto -c -k --keepParent Organic Organic-macOS.zip
       - uses: actions/upload-artifact@v4
         with:
