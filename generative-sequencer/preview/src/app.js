@@ -739,32 +739,66 @@
     }
   }
 
-  // Irregular mode: show the bar's grouping and where the bar starts in it.
+  // Info strip under the transport: what the current mode is doing this bar.
   var lastGrouping = '';
+  var MODE_HINT = {
+    organic: 'Organic: a drifting player with memory. Figures hold for a phrase and vary at its end.',
+  };
+  function esc(t) { return String(t).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
   function renderGrouping(eng, bar) {
     var box = $('grouping');
-    if (eng.mode !== 'irregular') {
-      if (lastGrouping !== 'organic') {
-        box.innerHTML = '<span class="hint">Organic: a drifting player with memory. Figures hold for a phrase and vary at its end.</span>';
-        lastGrouping = 'organic';
+    var mode = eng.mode;
+    if (MODE_HINT[mode]) {
+      if (lastGrouping !== mode) {
+        box.innerHTML = '<span class="hint">' + MODE_HINT[mode] + '</span>';
+        lastGrouping = mode;
       }
       return;
     }
     var plan = null;
     try { plan = eng.generator.debugPlan(Math.max(0, bar), eng.state); } catch (e) { plan = null; }
-    if (!plan || !plan.groups) return;
-    var key = plan.groups.join('+') + '@' + plan.phase;
-    if (key === lastGrouping) return;
+    if (!plan) return;
+    var names = eng.lanes.map(function (l) { return l.name; });
+    var key, html;
+    if (mode === 'irregular') {
+      if (!plan.groups) return;
+      key = 'i' + plan.groups.join('+') + '@' + plan.phase;
+      if (key === lastGrouping) return;
+      var cycle = plan.groups.reduce(function (a, b) { return a + b; }, 0);
+      html = '<span class="hint">Grouping</span>';
+      var acc = 0;
+      plan.groups.forEach(function (gl) {
+        var now = plan.phase >= acc && plan.phase < acc + gl;
+        html += '<span class="g' + (now ? ' now' : '') + '">' + gl + '</span>';
+        acc += gl;
+      });
+      html += '<span class="hint">' + cycle + ' units' + (cycle !== 16 ? ', slides across the bar line' : ', one bar') + '</span>';
+    } else if (mode === 'mathematical') {
+      if (!plan.cycles) return;
+      key = 'm' + plan.cycles.map(function (c) { return c.k + ',' + c.n + ',' + c.r; }).join('|');
+      if (key === lastGrouping) return;
+      html = '<span class="hint">Euclid</span>';
+      plan.cycles.forEach(function (c, li) {
+        var poly = c.n !== 16;
+        html += '<span class="g' + (poly ? ' now' : '') + '" title="' + (poly ? 'polymeter: cycle of ' + c.n + ' steps drifts against the bar' : 'cycle locked to the bar') + '">' +
+          esc(names[li] || 'Lane ' + (li + 1)) + ' E(' + c.k + ',' + c.n + ')' + (c.r ? '+' + c.r : '') + '</span>';
+      });
+      html += '<span class="hint">highlighted = polymeter</span>';
+    } else if (mode === 'physical') {
+      var counts = names.map(function () { return 0; });
+      plan.notes.forEach(function (n) { counts[n.lane]++; });
+      key = 'p' + counts.join(',') + '/' + plan.balls;
+      if (key === lastGrouping) return;
+      var roles = eng.lanes.map(function (l) { return l.role; });
+      html = '<span class="hint">Pendulums</span>';
+      roles.forEach(function (r, li) { if (r === 'anchor' || r === 'pulse') html += '<span class="g">' + esc(names[li]) + ' ' + counts[li] + '</span>'; });
+      html += '<span class="hint">Bouncing</span>';
+      roles.forEach(function (r, li) { if (r !== 'anchor' && r !== 'pulse') html += '<span class="g' + (counts[li] ? ' now' : '') + '">' + esc(names[li]) + ' ' + counts[li] + '</span>'; });
+      html += '<span class="hint">hits this bar' + (plan.balls ? ' · ' + plan.balls + ' still bouncing' : '') + '</span>';
+    } else {
+      return;
+    }
     lastGrouping = key;
-    var cycle = plan.groups.reduce(function (a, b) { return a + b; }, 0);
-    var html = '<span class="hint">Grouping</span>';
-    var acc = 0;
-    plan.groups.forEach(function (gl) {
-      var now = plan.phase >= acc && plan.phase < acc + gl;
-      html += '<span class="g' + (now ? ' now' : '') + '">' + gl + '</span>';
-      acc += gl;
-    });
-    html += '<span class="hint">' + cycle + ' units' + (cycle !== 16 ? ', slides across the bar line' : ', one bar') + '</span>';
     box.innerHTML = html;
   }
 

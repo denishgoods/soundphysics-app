@@ -643,7 +643,7 @@ const ParamSpec kParams[kNumParams] = {
     {"accent", "Accent", false, 0, 100, 50, "%", nullptr},
     {"ghosts", "Ghosts", false, 0, 100, 35, "%", nullptr},
     {"seed", "Seed", true, 0, 9999, 1, "", nullptr},
-    {"mode", "Mode", true, 0, 1, 0, "", "Organic|Irregular"},
+    {"mode", "Mode", true, 0, 3, 0, "", "Organic|Irregular|Mathematical|Physical"},
 };
 
 int paramIndex(const std::string& id) {
@@ -657,6 +657,10 @@ namespace {
 constexpr int32_t kSaltPlan = 0x91a7;
 constexpr int32_t kSaltPlanIrregular = 0x1a2b;
 constexpr int32_t kSaltFigure = 0x3c4d;
+constexpr int32_t kSaltPlanMath = 0x6a7b;
+constexpr int32_t kSaltStep = 0x7c8d;
+constexpr int32_t kSaltPlanPhys = 0x8e9f;
+constexpr double kBackU = 0.7;  // physical: backbeat drops draw u from 0..kBackU
 constexpr int32_t kSaltRender = 0x4e7d;
 constexpr int32_t kSaltFlam = 0xf1a3;
 constexpr double kMaxDev = 0.4;
@@ -959,6 +963,369 @@ std::vector<Note> Engine::irregularPlan(int, const PhraseInfo& info, Rng& rng) {
     return notes;
 }
 
+// ---- generators/mathematical/index.js -----------------------------------------
+
+namespace {
+double hitShare(Role r) {
+    switch (r) {
+        case Role::Anchor: return 0.25;
+        case Role::Backbeat: return 0.125;
+        case Role::Pulse: return 0.6;
+        default: return 0.35;
+    }
+}
+double polyChance(Role r) {
+    switch (r) {
+        case Role::Anchor: return 0.1;
+        case Role::Backbeat: return 0.15;
+        case Role::Pulse: return 0.3;
+        default: return 0.6;
+    }
+}
+bool euclid(int k, int n, int step) {
+    return std::floor(static_cast<double>(step * k) / n) != std::floor(static_cast<double>((step - 1) * k) / n);
+}
+int laneK(Role r, int n, double density, int kAdj) {
+    int k = static_cast<int>(jsRound(n * hitShare(r) * (0.3 + 1.1 * density))) + kAdj;
+    return std::max(1, std::min(n, k));
+}
+} // namespace
+
+std::vector<Engine::LaneCycle> Engine::mathNewConfig(Rng& rng, int U) {
+    std::vector<LaneCycle> out;
+    double L = p.looseness;
+    for (const auto& lane : laneList) {
+        Role role = lane.role;
+        int n = U;
+        if (U >= 4 && rng.chance(polyChance(role) * (0.2 + 1.2 * L))) {
+            static const int kDeltas[] = {-4, -3, -2, -1, 1, 2, 3, 4};
+            n = std::max(3, U + kDeltas[rng.intBelow(8)]);
+        }
+        int r = 0;
+        if (role == Role::Backbeat) r = n == U ? (n - static_cast<int>(jsRound(U / 4.0))) % n : rng.intBelow(n);
+        else if (role == Role::Pulse) r = rng.chance(0.5) ? 0 : rng.intBelow(n);
+        else if (role == Role::Color) r = rng.intBelow(n);
+        out.push_back({n, r, 0});
+    }
+    return out;
+}
+
+namespace {
+std::vector<Engine::LaneCycle> mathVary(const std::vector<Engine::LaneCycle>& cfg, Rng& rng, const std::vector<Lane>& lanes) {
+    std::vector<Engine::LaneCycle> c = cfg;
+    std::vector<int> movable;
+    for (int i = 0; i < static_cast<int>(lanes.size()); i++) if (lanes[i].role != Role::Anchor) movable.push_back(i);
+    int li = !movable.empty() ? movable[rng.intBelow(static_cast<double>(movable.size()))] : rng.intBelow(static_cast<double>(lanes.size()));
+    int op = rng.intBelow(3);
+    if (op == 0) {
+        static const int kD[] = {-2, -1, 1, 2};
+        int d = kD[rng.intBelow(4)];
+        c[li].r = (((c[li].r + d) % c[li].n) + c[li].n) % c[li].n;
+    } else if (op == 1) {
+        c[li].kAdj = std::max(-2, std::min(2, c[li].kAdj + (rng.chance(0.5) ? 1 : -1)));
+    } else {
+        c[li].n = std::max(3, c[li].n + (rng.chance(0.5) ? 1 : -1));
+        c[li].r = c[li].r % c[li].n;
+    }
+    return c;
+}
+} // namespace
+
+std::vector<Note> Engine::mathBarNotes(const MathFig& fig, int k) {
+    const Meter& m = meterNow;
+    double unit = unitOf(m);
+    int U = unitsPerBar(m);
+    int pulseUnits = std::max(1, static_cast<int>(jsRound(m.pulse / unit)));
+    std::vector<Note> out;
+    for (int li = 0; li < static_cast<int>(laneList.size()); li++) {
+        Role role = laneList[li].role;
+        const RoleProfile& rp = profile(role);
+        const LaneCycle& lc = fig.cfg[li];
+        int kk = laneK(role, lc.n, p.density, lc.kAdj);
+        struct Hit { double imp; Note note; };
+        std::vector<Hit> hits;
+        std::vector<Note> ghosts;
+        for (int i = 0; i < U; i++) {
+            int step = (k * U + i + lc.r) % lc.n;
+            if (!euclid(kk, lc.n, step)) continue;
+            Rng rs(hash32({u2i(seed), kSaltStep, fig.id, li, step}));
+            double imp = (step == 0 ? 1 : (i == 0 ? 0.8 : 0.5)) * rs.range(0.9, 1.1);
+            double disp = rs.gauss() * p.looseness * 0.02;
+            double accent = rs.chance(rp.accentP * (step == 0 ? 1 : 0.3)) ? rs.range(0.5, 1) : 0;
+            bool flam = accent > 0 && rp.flam > 0 && rs.chance(rp.flam);
+            Note n;
+            n.id = static_cast<int32_t>(hash32({kSaltStep, fig.id, li, step}) >> 1);
+            n.lane = li;
+            n.pos = clampPos(i * unit + disp, m.barLen);
+            n.att = i * unit;
+            n.fam = Family::Main;
+            n.kind = Kind::Main;
+            n.accent = accent;
+            n.flam = flam;
+            n.w = step == 0 ? 1 : (i % pulseUnits == 0 ? 0.7 : 0.45);
+            hits.push_back({imp, n});
+            if (role == Role::Backbeat && i > 0) {
+                int prev = (k * U + i - 1 + lc.r) % lc.n;
+                if (!euclid(kk, lc.n, prev)) {
+                    Note g;
+                    g.id = static_cast<int32_t>(hash32({kSaltStep, fig.id, li, step, 1}) >> 1);
+                    g.lane = li;
+                    g.pos = (i - 1) * unit;
+                    g.att = (i - 1) * unit;
+                    g.fam = Family::Main;
+                    g.kind = Kind::Ghost;
+                    ghosts.push_back(g);
+                }
+            }
+        }
+        std::vector<size_t> order(hits.size());
+        for (size_t i = 0; i < order.size(); i++) order[i] = i;
+        std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+            if (hits[a].imp != hits[b].imp) return hits[a].imp > hits[b].imp;
+            return a < b;
+        });
+        for (size_t rank = 0; rank < order.size(); rank++) {
+            Note n = hits[order[rank]].note;
+            n.prio = ((rank + 0.5) / order.size()) * p.density + 1e-6;
+            out.push_back(n);
+        }
+        for (size_t rank = 0; rank < ghosts.size(); rank++) {
+            Note g = ghosts[rank];
+            g.prio = (rank + 0.5) / ghosts.size();
+            out.push_back(g);
+        }
+    }
+    return out;
+}
+
+std::vector<Note> Engine::mathFill(std::vector<Note> notes, const PhraseInfo& info, Rng& rng) {
+    if (!info.isLast) return notes;
+    if (!rng.chance(0.2 + (info.shape == Shape::Build ? 0.35 : 0))) return notes;
+    int li = -1;
+    for (int i = 0; i < static_cast<int>(laneList.size()); i++) if (laneList[i].role == Role::Backbeat) { li = i; break; }
+    if (li < 0) return notes;
+    const Meter& m = meterNow;
+    double spanEnd = m.barLen * (1 - info.restInBar);
+    double spanLen = std::min(spanEnd, 2 * m.pulse);
+    if (spanLen < m.pulse * 0.99) return notes;
+    double from = spanEnd - spanLen;
+    int kf = 5 + rng.intBelow(3);
+    double prio = 0.2 + 0.4 * rng.next();
+    std::vector<Note> kept;
+    for (const auto& n : notes)
+        if (n.lane != li || n.pos < from || n.pos >= spanEnd) kept.push_back(n);
+    for (int s = 0; s < 8; s++) {
+        if (!euclid(kf, 8, s)) continue;
+        double pos = from + (s * spanLen) / 8;
+        Note f;
+        f.id = rng.intBelow(2147483647.0);
+        f.lane = li;
+        f.pos = pos;
+        f.att = pos;
+        f.fam = Family::Main;
+        f.kind = Kind::Fill;
+        f.prio = prio;
+        f.accent = s == 0 ? 0.6 : 0;
+        f.fillProg = s / 8.0;
+        kept.push_back(f);
+    }
+    return kept;
+}
+
+void Engine::storeMath(std::vector<LaneCycle> cfg) {
+    auto fig = std::make_shared<MathFig>(MathFig{std::move(cfg), mathNextId++});
+    mathBank.push_back(fig);
+    if (mathBank.size() > 4) mathBank.pop_front();
+    mathCurrent = fig;
+}
+
+std::vector<Note> Engine::mathematicalPlan(int k, const PhraseInfo& info, Rng& rng) {
+    double m = p.memory;
+    double loose = 1 - m;
+    int U = unitsPerBar(meterNow);
+    if (!mathCurrent) {
+        storeMath(mathNewConfig(rng, U));
+    } else {
+        double pChange = info.isFirst ? 0.85 * std::pow(loose, 1.2) : 0.6 * std::pow(loose, 2.5);
+        if (rng.chance(pChange)) {
+            std::vector<std::shared_ptr<MathFig>> others;
+            for (auto& b : mathBank) if (b != mathCurrent) others.push_back(b);
+            double r = rng.next();
+            if (!others.empty() && r < 0.3) mathCurrent = others[rng.intBelow(static_cast<double>(others.size()))];
+            else if (r < 0.3 + 0.7 * (0.4 + 0.6 * m)) storeMath(mathVary(mathCurrent->cfg, rng, laneList));
+            else storeMath(mathNewConfig(rng, U));
+        }
+    }
+    std::vector<Note> notes = mathBarNotes(*mathCurrent, k);
+    if (info.isLast) notes = varyBar(notes, 0.12 + 0.35 * loose, rng);
+    else if (!rng.chance(0.45 + 0.5 * m)) notes = varyBar(notes, 0.03 + 0.3 * loose, rng);
+    return mathFill(std::move(notes), info, rng);
+}
+
+// ---- generators/physical/index.js ----------------------------------------------
+
+std::vector<Engine::PhysLane> Engine::physNewConfig(Rng& rng) {
+    const Meter& m = meterNow;
+    double L = p.looseness;
+    std::vector<PhysLane> lanes;
+    for (const auto& lane : laneList) {
+        PhysLane c{0, {}};
+        if (lane.role == Role::Anchor) c.detune = (rng.next() * 2 - 1) * (0.005 + 0.06 * L);
+        else if (lane.role == Role::Pulse) c.detune = (rng.next() * 2 - 1) * (0.005 + 0.05 * L);
+        else {
+            int n = std::max(1, static_cast<int>(jsRound(m.pulsesPerBar)));
+            for (int j = 0; j < n; j++) {
+                Drop d;
+                bool strong = false;
+                if (lane.role == Role::Backbeat) {
+                    bool back = j % 2 == 1 || n % 2 == 1;
+                    d.at = j * m.pulse;
+                    d.p = back && j > 0 ? 0.9 : 0.15;
+                    strong = back && j > 0;
+                    d.interval = m.pulse * rng.range(0.3, 0.7);
+                    d.e = rng.range(0.5, 0.75);
+                } else {
+                    d.at = j * m.pulse + m.pulse / 2;
+                    d.p = 0.35;
+                    d.interval = m.pulse * rng.range(0.2, 0.45);
+                    d.e = rng.range(0.45, 0.65);
+                }
+                d.u = rng.next() * (strong ? kBackU : 1);
+                c.drops.push_back(d);
+            }
+        }
+        lanes.push_back(c);
+    }
+    return lanes;
+}
+
+namespace {
+std::vector<Engine::PhysLane> physVary(const std::vector<Engine::PhysLane>& cfg, Rng& rng) {
+    std::vector<Engine::PhysLane> c = cfg;
+    for (auto& x : c) x.detune *= 1 + rng.gauss() * 0.3;
+    std::vector<int> withDrops;
+    for (int i = 0; i < static_cast<int>(c.size()); i++) if (!c[i].drops.empty()) withDrops.push_back(i);
+    if (!withDrops.empty()) {
+        auto& lane = c[withDrops[rng.intBelow(static_cast<double>(withDrops.size()))]];
+        auto& d = lane.drops[rng.intBelow(static_cast<double>(lane.drops.size()))];
+        d.interval *= rng.range(0.8, 1.25);
+        d.u = rng.next() * (d.p >= 0.9 ? kBackU : 1);
+    }
+    return c;
+}
+} // namespace
+
+void Engine::storePhys(std::vector<PhysLane> cfg) {
+    auto fig = std::make_shared<PhysFig>(PhysFig{std::move(cfg), physNextId++});
+    physBank.push_back(fig);
+    if (physBank.size() > 4) physBank.pop_front();
+    physCurrent = fig;
+}
+
+std::vector<Note> Engine::physicalPlan(int k, const PhraseInfo& info, Rng& rng) {
+    const Meter& m = meterNow;
+    double mem = p.memory;
+    double loose = 1 - mem;
+    if (!physCurrent) {
+        storePhys(physNewConfig(rng));
+    } else {
+        double pChange = info.isFirst ? 0.85 * std::pow(loose, 1.2) : 0.6 * std::pow(loose, 2.5);
+        if (rng.chance(pChange)) {
+            std::vector<std::shared_ptr<PhysFig>> others;
+            for (auto& b : physBank) if (b != physCurrent) others.push_back(b);
+            double r = rng.next();
+            if (!others.empty() && r < 0.3) physCurrent = others[rng.intBelow(static_cast<double>(others.size()))];
+            else if (r < 0.3 + 0.7 * (0.4 + 0.6 * mem)) storePhys(physVary(physCurrent->cfg, rng));
+            else storePhys(physNewConfig(rng));
+        }
+    }
+    const std::vector<PhysLane>& cfg = physCurrent->cfg;
+    double barT = k * m.barLen;
+    double barEnd = barT + m.barLen;
+    struct Raw { double t, vel; };
+    std::vector<std::vector<Raw>> raw(laneList.size());
+    if (physPend.size() != laneList.size()) physPend.assign(laneList.size(), std::numeric_limits<double>::quiet_NaN());
+
+    double lock = 0.1 + 0.85 * mem;
+    for (int li = 0; li < static_cast<int>(laneList.size()); li++) {
+        Role role = laneList[li].role;
+        if (role != Role::Anchor && role != Role::Pulse) continue;
+        if (std::isnan(physPend[li])) physPend[li] = barT;
+        double grid = role == Role::Anchor ? (p.density < 0.35 ? 2 * m.pulse : m.pulse) : (p.density < 0.3 ? m.pulse : m.pulse / 2);
+        double t = physPend[li];
+        while (t < barEnd) {
+            double err = t - jsRound(t / grid) * grid;
+            double off = std::fabs(err) / grid;
+            double vel;
+            if (role == Role::Anchor) vel = 1 - std::min(0.6, off * 3);
+            else {
+                bool onPulse = std::fabs(t - jsRound(t / m.pulse) * m.pulse) < grid * 0.25;
+                vel = (onPulse ? 0.85 : 0.55) * (1 - std::min(0.5, off * 2));
+            }
+            raw[li].push_back({t, vel});
+            double next = t + grid * (1 + cfg[li].detune) - lock * err;
+            if (next < t + grid * 0.25) next = t + grid * 0.25;
+            t = next;
+        }
+        physPend[li] = t;
+    }
+
+    for (int li = 0; li < static_cast<int>(laneList.size()); li++)
+        for (const auto& d : cfg[li].drops)
+            if (d.u < d.p * (0.3 + 0.9 * p.density)) physBalls.push_back({li, barT + d.at, d.interval, d.e, 1, 0});
+    if (info.isLast && rng.chance(0.4 + (info.shape == Shape::Build ? 0.3 : 0))) {
+        int li = -1;
+        for (int i = 0; i < static_cast<int>(laneList.size()); i++) if (laneList[i].role == Role::Backbeat) { li = i; break; }
+        if (li >= 0) {
+            double at = m.barLen * (1 - info.restInBar) - m.pulse * rng.range(1, 2);
+            if (at > 0) physBalls.push_back({li, barT + at, m.pulse * 0.5, 0.82, 1, 0});
+        }
+    }
+    std::vector<Ball> alive;
+    for (auto b : physBalls) {
+        bool dead = false;
+        while (b.t < barEnd) {
+            raw[b.lane].push_back({b.t, b.vel});
+            b.t += b.interval;
+            b.interval *= b.e;
+            b.vel *= std::pow(b.e, 0.9);
+            b.j++;
+            if (b.interval < 0.035 || b.vel < 0.08 || b.j > 14) {
+                dead = true;
+                break;
+            }
+        }
+        if (!dead) alive.push_back(b);
+    }
+    physBalls = alive;
+
+    std::vector<Note> notes;
+    for (int li = 0; li < static_cast<int>(raw.size()); li++) {
+        std::vector<Raw> list;
+        for (const auto& x : raw[li]) if (x.t >= barT && x.t < barEnd) list.push_back(x);
+        std::vector<size_t> order(list.size());
+        for (size_t i = 0; i < order.size(); i++) order[i] = i;
+        std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+            if (list[a].vel != list[b].vel) return list[a].vel > list[b].vel;
+            return a < b;
+        });
+        for (size_t rank = 0; rank < order.size(); rank++) {
+            const Raw& x = list[order[rank]];
+            Note n;
+            n.id = physNextNote++;
+            n.lane = li;
+            n.pos = clampPos(x.t - barT, m.barLen);
+            n.att = n.pos;
+            n.fam = Family::Free;
+            n.kind = Kind::Main;
+            n.prio = ((rank + 0.5) / order.size()) * p.density + 1e-6;
+            n.vel = x.vel;
+            notes.push_back(n);
+        }
+    }
+    return notes;
+}
+
 Engine::Engine() {
     for (int i = 0; i < kNumParams; i++) values[i] = kParams[i].def;
     laneList = defaultLanes();
@@ -1011,6 +1378,10 @@ bool Engine::setParam(int index, double value) {
         memory = MotifMemory();
         figBank.clear();
         figCurrent.reset();
+        mathBank.clear();
+        mathCurrent.reset();
+        physBank.clear();
+        physCurrent.reset();
     }
     // Switching mode: the new mode starts from its own initial state.
     if (index == kModeParam && p.mode != prevMode && breath) genInit();
@@ -1039,6 +1410,15 @@ void Engine::genInit() {
     figCurrent.reset();
     figPhase = 0;
     figNextId = 1;
+    mathBank.clear();
+    mathCurrent.reset();
+    mathNextId = 1;
+    physBank.clear();
+    physCurrent.reset();
+    physNextId = 1;
+    physNextNote = 1;
+    physPend.assign(laneList.size(), std::numeric_limits<double>::quiet_NaN());
+    physBalls.clear();
     plans.clear();
     nextBar = 0;
 }
@@ -1093,10 +1473,17 @@ std::vector<Note> Engine::organicPlan(int k, const PhraseInfo& info, Rng& rng) {
 }
 
 Engine::Plan Engine::makePlan(int k) {
-    bool organicMode = mode() == Mode::Organic;
-    Rng rng(hash32({u2i(seed), organicMode ? kSaltPlan : kSaltPlanIrregular, k}));
+    static const int32_t kSalts[] = {kSaltPlan, kSaltPlanIrregular, kSaltPlanMath, kSaltPlanPhys};
+    Mode md = mode();
+    Rng rng(hash32({u2i(seed), kSalts[static_cast<int>(md)], k}));
     PhraseInfo info = breath->info(k);
-    std::vector<Note> notes = organicMode ? organicPlan(k, info, rng) : irregularPlan(k, info, rng);
+    std::vector<Note> notes;
+    switch (md) {
+        case Mode::Organic: notes = organicPlan(k, info, rng); break;
+        case Mode::Irregular: notes = irregularPlan(k, info, rng); break;
+        case Mode::Mathematical: notes = mathematicalPlan(k, info, rng); break;
+        default: notes = physicalPlan(k, info, rng); break;
+    }
     std::stable_sort(notes.begin(), notes.end(), [](const Note& a, const Note& b) {
         if (a.pos != b.pos) return a.pos < b.pos;
         if (a.lane != b.lane) return a.lane < b.lane;
@@ -1153,6 +1540,7 @@ void Engine::render(const Note& c, int k, double barStart, std::vector<Event>& o
     double v;
     if (c.kind == Kind::Ghost) v = rp.ghostVel * (0.85 + 0.3 * r.next()) * (1 - 0.25 * A);
     else if (c.kind == Kind::Fill) v = rp.velocity * (0.45 + 0.5 * c.fillProg) * (1 + 0.2 * A * c.fillProg);
+    else if (c.vel >= 0) v = rp.velocity * (0.35 + 0.75 * c.vel) * (1 + A * 0.35 * (c.vel - 0.5));
     else v = rp.velocity * (1 + A * 0.55 * ((c.w >= 0 ? c.w : metricWeight(m, c.pos)) - 0.45));
     if (c.accent > 0) v += A * 26 * c.accent;
     v *= 1 + p.breath * 0.15 * (std::min(env, 1.3) - 0.9);

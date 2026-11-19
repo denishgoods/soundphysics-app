@@ -19,7 +19,7 @@
 
 namespace organic {
 
-constexpr const char* kVersion = "0.3.0";
+constexpr const char* kVersion = "0.4.0";
 
 // ---- prng -------------------------------------------------------------
 uint32_t hash32(std::initializer_list<int32_t> args);
@@ -117,7 +117,7 @@ std::vector<Lane> defaultLanes();
 struct ParamSpec { const char* id; const char* name; bool isInt; double min, max, def; const char* unit; const char* options; };
 constexpr int kNumParams = 10;
 constexpr int kModeParam = 9;
-enum class Mode { Organic = 0, Irregular = 1 };
+enum class Mode { Organic = 0, Irregular = 1, Mathematical = 2, Physical = 3 };
 extern const ParamSpec kParams[kNumParams];
 int paramIndex(const std::string& id);
 
@@ -139,7 +139,8 @@ struct Note {
     double prio = 0.5, accent = 0;
     bool flam = false;
     double fillProg = 0;
-    double w = -1;  // emphasis 0..1; < 0 = use the metric weight of pos
+    double w = -1;    // emphasis 0..1; < 0 = use the metric weight of pos
+    double vel = -1;  // own loudness 0..1 (physical mode); < 0 = unset
     int uid = 0;
 };
 
@@ -196,6 +197,24 @@ private:
     std::vector<Note> figureNotes(const Figure& fig, int phase);
     std::vector<Note> irregularFill(std::vector<Note> notes, const PhraseInfo& info, Rng& rng, const Figure& fig, int phase);
     void storeFigure(std::vector<int> groups);
+public:  // config types used by free helpers in organic.cpp
+    struct LaneCycle { int n, r, kAdj; };
+    struct Drop { double at, p, interval, e, u; };
+    struct PhysLane { double detune; std::vector<Drop> drops; };
+private:
+    // mathematical mode (generators/mathematical/index.js)
+    struct MathFig { std::vector<LaneCycle> cfg; int id; };
+    std::vector<Note> mathematicalPlan(int k, const PhraseInfo& info, Rng& rng);
+    std::vector<LaneCycle> mathNewConfig(Rng& rng, int U);
+    std::vector<Note> mathBarNotes(const MathFig& fig, int k);
+    std::vector<Note> mathFill(std::vector<Note> notes, const PhraseInfo& info, Rng& rng);
+    void storeMath(std::vector<LaneCycle> cfg);
+    // physical mode (generators/physical/index.js)
+    struct PhysFig { std::vector<PhysLane> cfg; int id; };
+    struct Ball { int lane; double t, interval, e, vel; int j; };
+    std::vector<Note> physicalPlan(int k, const PhraseInfo& info, Rng& rng);
+    std::vector<PhysLane> physNewConfig(Rng& rng);
+    void storePhys(std::vector<PhysLane> cfg);
     void render(const Note& c, int k, double barStart, std::vector<Event>& out);
 
     // timeline
@@ -224,6 +243,15 @@ private:
     std::shared_ptr<Figure> figCurrent;
     int figPhase = 0;
     int figNextId = 1;
+    std::deque<std::shared_ptr<MathFig>> mathBank;
+    std::shared_ptr<MathFig> mathCurrent;
+    int mathNextId = 1;
+    std::deque<std::shared_ptr<PhysFig>> physBank;
+    std::shared_ptr<PhysFig> physCurrent;
+    int physNextId = 1;
+    int physNextNote = 1;
+    std::vector<double> physPend;
+    std::vector<Ball> physBalls;
     std::map<int, Plan> plans;
     int nextBar = 0;
 

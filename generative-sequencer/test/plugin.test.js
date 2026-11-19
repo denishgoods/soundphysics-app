@@ -97,9 +97,27 @@ CASES.push({ seed: 6, bars: 32, bpm: 130, meter: [4, 4], start: 6.5, window: 0.9
 for (const meter of [[3, 4], [7, 8], [6, 8], [5, 4]]) {
   CASES.push({ seed: 8, bars: 24, bpm: 110, meter, start: 0, window: 0.5, params: { mode: 1, looseness: 70 }, changes: [] });
 }
+// Mathematical and Physical modes
+for (const mode of [2, 3]) {
+  for (const seed of [1, 2, 3]) {
+    CASES.push({ seed, bars: 48, bpm: 120, meter: [4, 4], start: 0, window: 0.25, params: { mode }, changes: [] });
+  }
+  CASES.push({ seed: 5, bars: 48, bpm: 100, meter: [4, 4], start: 0, window: 0.37, params: { mode, looseness: 95, memory: 5, breath: 100, ghosts: 90, accent: 100 }, changes: [] });
+  CASES.push({ seed: 6, bars: 32, bpm: 130, meter: [4, 4], start: 6.5, window: 0.9, params: { mode, memory: 100, density: 100 }, changes: [] });
+  CASES.push({ seed: 7, bars: 40, bpm: 90, meter: [4, 4], start: 0, window: 0.3, params: { mode, density: 20, memory: 50, looseness: 60 }, changes: [] });
+  for (const meter of [[3, 4], [7, 8], [6, 8], [5, 4]]) {
+    CASES.push({ seed: 8, bars: 24, bpm: 110, meter, start: 0, window: 0.5, params: { mode, looseness: 70 }, changes: [] });
+  }
+  CASES.push({ seed: 10, bars: 40, bpm: 120, meter: [4, 4], start: 0, window: 0.2, params: { mode }, changes: [
+    { at: 20, id: 'density', value: 90 }, { at: 50, id: 'memory', value: 0 }, { at: 80, id: 'seed', value: 31 }, { at: 110, id: 'looseness', value: 90 },
+  ] });
+}
 // switching mode during a performance
 CASES.push({ seed: 9, bars: 40, bpm: 120, meter: [4, 4], start: 0, window: 0.2, params: {}, changes: [
   { at: 30, id: 'mode', value: 1 }, { at: 70, id: 'seed', value: 77 }, { at: 100, id: 'mode', value: 0 }, { at: 130, id: 'mode', value: 1 },
+] });
+CASES.push({ seed: 11, bars: 48, bpm: 120, meter: [4, 4], start: 0, window: 0.2, params: { mode: 2 }, changes: [
+  { at: 25, id: 'mode', value: 3 }, { at: 60, id: 'seed', value: 5 }, { at: 90, id: 'mode', value: 0 }, { at: 120, id: 'mode', value: 2 }, { at: 150, id: 'mode', value: 1 }, { at: 170, id: 'mode', value: 3 },
 ] });
 
 test('C++ engine matches the JS engine event for event', (t) => {

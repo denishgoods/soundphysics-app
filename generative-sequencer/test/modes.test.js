@@ -95,6 +95,15 @@ test('physical: Memory locks the pendulums to the grid', () => {
   assert.ok(free > locked * 2, `free ${free} vs locked ${locked}`);
 });
 
+test('physical: at default density every seed has a backbeat in every bar', () => {
+  for (let seed = 1; seed <= 40; seed++) {
+    const eng = E.createEngine({ params: { mode: 'physical', seed } });
+    eng.reset(0);
+    const bars = new Set(eng.generate(0, 64).filter((e) => e.lane === 1).map((e) => Math.floor(e.beat / 4)));
+    assert.equal(bars.size, 16, `seed ${seed}`);
+  }
+});
+
 test('all four modes switch mid-performance without duplicates', () => {
   const e = makeEngine({ seed: 9 });
   const seen = new Set();

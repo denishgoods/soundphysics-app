@@ -33,6 +33,11 @@ function isPendulum(role) {
   return role === 'anchor' || role === 'pulse';
 }
 
+// Each drop fires when its fixed draw u < p * (0.3 + 0.9 * density). The
+// backbeat drops draw u from 0..BACK_U so at Density >= ~53 they always land
+// (a uniform 0..1 draw left some seeds without a snare for whole phrases).
+const BACK_U = 0.7;
+
 // Per-phrase setup: pendulum detunes and the ball drops.
 function newConfig(rng, st) {
   const meter = st.meter;
@@ -48,7 +53,8 @@ function newConfig(rng, st) {
       for (let j = 0; j < n; j++) {
         if (role === 'backbeat') {
           const back = j % 2 === 1 || n % 2 === 1;
-          c.drops.push({ at: j * meter.pulse, p: back && j > 0 ? 0.9 : 0.15, interval: meter.pulse * rng.range(0.3, 0.7), e: rng.range(0.5, 0.75), u: rng.float() });
+          const strong = back && j > 0;
+          c.drops.push({ at: j * meter.pulse, p: strong ? 0.9 : 0.15, interval: meter.pulse * rng.range(0.3, 0.7), e: rng.range(0.5, 0.75), u: rng.float() * (strong ? BACK_U : 1) });
         } else {
           c.drops.push({ at: j * meter.pulse + meter.pulse / 2, p: 0.35, interval: meter.pulse * rng.range(0.2, 0.45), e: rng.range(0.45, 0.65), u: rng.float() });
         }
@@ -69,7 +75,7 @@ function varyConfig(cfg, rng) {
     const lane = c[withDrops[rng.int(withDrops.length)]];
     const d = lane.drops[rng.int(lane.drops.length)];
     d.interval *= rng.range(0.8, 1.25);
-    d.u = rng.float();
+    d.u = rng.float() * (d.p >= 0.9 ? BACK_U : 1);
   }
   return c;
 }

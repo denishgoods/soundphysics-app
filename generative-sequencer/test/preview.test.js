@@ -37,6 +37,21 @@ test('preview page plays, switches mode and saves the engine’s notes', { skip:
     const expected = [];
     for (let b = 0; b < 16; b += 0.25) expected.push(...ref.generate(b, b + 0.25));
     assert.deepEqual(notes, expected);
+    // the new modes play and describe themselves in the info strip
+    for (const [mode, label] of [['mathematical', /Euclid.*E\(\d+,\d+\)/], ['physical', /Pendulums.*Bouncing/]]) {
+      await page.click('#mode-' + mode);
+      await page.click('#play');
+      await page.waitForTimeout(900);
+      assert.match(await page.textContent('#grouping'), label, mode);
+      assert.match(await page.textContent('#pos'), /\d+ notes/, mode);
+      await page.click('#play');
+      const got = await page.evaluate(() => window.__organicLab.clipEvents(2).notes);
+      const r = E.createEngine({ params: { mode } });
+      r.reset(0);
+      const want = [];
+      for (let b = 0; b < 8; b += 0.25) want.push(...r.generate(b, b + 0.25));
+      assert.deepEqual(got, want, mode);
+    }
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

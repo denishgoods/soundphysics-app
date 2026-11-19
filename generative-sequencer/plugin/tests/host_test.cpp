@@ -102,9 +102,17 @@ int main(int argc, char** argv) {
             density->setValueNotifyingHost(0.8f); // normalised: 80 of 0..100
             refEngine.setParam("density", 80);
         }
-        if (b == 1200) {
-            modeParam->setValueNotifyingHost(1.0f); // Irregular
+        if (b == 900) {
+            modeParam->setValueNotifyingHost(1.0f / 3.0f); // Irregular (choice 1 of 0..3)
             refEngine.setParam("mode", 1);
+        }
+        if (b == 1500) {
+            modeParam->setValueNotifyingHost(2.0f / 3.0f); // Mathematical
+            refEngine.setParam("mode", 2);
+        }
+        if (b == 2000) {
+            modeParam->setValueNotifyingHost(1.0f); // Physical
+            refEngine.setParam("mode", 3);
         }
         organic::HostTransport t = transportFor(b, song);
         head.info = {};

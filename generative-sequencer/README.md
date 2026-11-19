@@ -5,9 +5,9 @@ A generative drum sequencer, available two ways:
 - a **Max for Live MIDI Effect** for Ableton Live 12 / Max 9 (`max/`), and
 - a **native plugin** for any DAW: VST3, plus an AU MIDI FX for Logic (`plugin/`).
 
-Two pattern modes so far, chosen with the **Mode** parameter: **Organic** (a drifting
-player with memory) and **Irregular** (odd groupings that reshape the bar). Mathematical and
-physical modes are planned. The engine is pure JavaScript (Node and Max's `[v8]`), with a
+Four pattern modes, chosen with the **Mode** parameter: **Organic** (a drifting player with
+memory), **Irregular** (odd groupings that reshape the bar), **Mathematical** (Euclidean
+rhythms and polymeters) and **Physical** (pendulums and bouncing balls). The engine is pure JavaScript (Node and Max's `[v8]`), with a
 C++ port for the plugin. Both play the same performance for the same seed and settings,
 and a parity test keeps them in step.
 
@@ -26,6 +26,8 @@ engine/                 pure JS, deterministic, no dependencies, no host APIs
     shared.js           bar-plan cache and per-note rendering, used by every mode
     organic/            mode 1: motif memory, fills
     irregular/          mode 2: groupings of 2/3/4/5 units, cycles across the bar line
+    mathematical/       mode 3: Euclidean rhythms E(k, n), polymeters
+    physical/           mode 4: pendulums and bouncing balls
   timeline.js           window logic shared by all modes
   scheduler.js          look-ahead scheduler (host-agnostic)
 max/
@@ -97,7 +99,7 @@ All are `live.dial` objects (Seed is a `live.numbox`), saved with the set and au
 | Accent | 0–100 % | 50 | Velocity contrast. |
 | Ghosts | 0–100 % | 35 | Ghost notes and flams. |
 | Seed | 0–9999 | 1 | Random seed. |
-| Mode | Organic / Irregular | Organic | Pattern type (see below). A tab in the Max device, a drop-down in the plugin. |
+| Mode | Organic / Irregular / Mathematical / Physical | Organic | Pattern type (see below). A tab in the Max device, a drop-down in the plugin. |
 
 Knob changes take effect within about 1–2 beats: the timeline renders up to a beat ahead and
 never changes notes it has already rendered (see below).
@@ -126,6 +128,44 @@ Try it: `npm run sim -- --mode irregular --bars 16 --seed 3 --looseness 80`, or 
 `examples/irregular-*.mid` files. Switching Mode mid-performance takes effect within a
 beat or two.
 
+## Mathematical mode
+
+Each lane plays a **Euclidean rhythm** E(k, n): k hits spread as evenly as possible over a
+cycle of n units (16ths in x/4, 8ths in x/8), rotated by r. E(3,8) is the tresillo,
+E(5,16) the bossa.
+- **Density sets k** per lane (kick about a quarter of the steps, hats about 60 %).
+- **Looseness gives lanes their own cycle length** (polymeter): e.g. perc on 13 against 16.
+  Cycles count from the start of the performance and keep running across bar lines, so
+  lanes drift in and out of phase with each other and with the bar.
+- **Memory** sets how long a configuration holds. Changes happen at phrase starts: back to
+  an earlier set, a nudge (rotate a lane, add or drop a hit, change a cycle by one), or a
+  new set.
+- **Accents** fall on each lane's cycle start; the snare gets ghosts just before its hits.
+- **Phrase ends** may get an E(5..7, 8) snare fill.
+
+Try it: `npm run sim -- --mode mathematical --bars 16 --seed 2 --looseness 70`, or
+`examples/mathematical-polymeter-seed2-118bpm.mid`. The preview page shows each lane's
+E(k, n) under the roll and highlights the polymetric ones.
+
+## Physical mode
+
+Notes come from a small simulation that runs through the performance.
+- **Pendulums** (kick and hats) swing with a period slightly detuned from the beat and get
+  pulled back towards it on every swing. *Memory* sets how strongly they lock to the grid:
+  with low Memory they wander, slip and catch up. *Looseness* sets how far they are
+  detuned. A stroke far from the grid is softer.
+- **Bouncing balls** (snare and perc) are dropped around the backbeats (snare) and on the
+  off-beats (perc). Each drop is a train of impacts whose spacing shrinks and whose loudness
+  fades: an accelerating roll. *Density* sets how many drops land; at the default density
+  the backbeat drops always land.
+- **Phrase ends** get a big drop that rolls into the next phrase. A roll started near the
+  bar line finishes in the next bar.
+- Swing does not apply: physics ignores the grid. Each note's loudness comes from the
+  simulation, and *Accent* scales the contrast.
+
+Try it: `npm run sim -- --mode physical --bars 16 --seed 2`, or
+`examples/physical-defaults-seed2-120bpm.mid`.
+
 ### Lanes
 
 | Lane | Note | Role |
@@ -141,8 +181,8 @@ These match a standard Drum Rack layout. To change them, edit `DEFAULT_LANES` in
 ## Architecture
 
 **Generator interface** (`engine/generators/index.js`). Adding a mode means writing the
-bar planner; `generators/shared.js` provides the plan cache and the renderer. Irregular is
-about 300 lines. A mode is an object with
+bar planner; `generators/shared.js` provides the plan cache and the renderer. Each of
+Irregular, Mathematical and Physical is 200–300 lines. A mode is an object with
 `id`, `maxDeviation`, `init(state)`, optional `reseed(state)` and
 `generate(startBeat, endBeat, state) -> Event[]`, where
 `Event = { beat, lane, note, velocity, duration }` (beats). `generate` is called on
@@ -264,7 +304,7 @@ build is provided: the engine uses ES2015+ syntax.
    the background) and tick **Open in Presentation**.
 8. Save and close the editor. The device shows nine controls.
 9. In the Max Console (*Window > Max Console*) you should see
-   `organic: engine 0.3.0 (organic) ready`. If you see that `organic.js` can't be found,
+   `organic: engine 0.4.0 (organic) ready`. If you see that `organic.js` can't be found,
    the script isn't in the same folder as the `.amxd` (step 1).
 10. To share the device or move it around, click **Freeze Device** (snowflake icon at the
     bottom of the editor) and save. This embeds `organic.js` in the `.amxd`.
