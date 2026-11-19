@@ -138,8 +138,11 @@
 
   function playEvent(ev, now) {
     var when = Math.max(now, timeAt(ev.beat));
+    var snd = sounds[ev.lane];
     var buf = buffers[ev.note];
-    if (buf) {
+    if (snd.source === 'sample' && snd.buffer) {
+      playSample(snd, ev, when);
+    } else if (buf) {
       var src = ctx.createBufferSource();
       src.buffer = buf;
       var g = ctx.createGain();
@@ -152,6 +155,33 @@
     sendMidi(ev, when - now);
     played.push({ beat: ev.beat, lane: ev.lane, velocity: ev.velocity, duration: ev.duration });
     notesCount++;
+  }
+
+  // A sample hit. Start point by the lane's mode: from the start, a random
+  // point, or mixed (accents from the start, other hits half the time from
+  // inside). Length cuts it short; short fades avoid clicks.
+  function playSample(snd, ev, when) {
+    var buf = snd.buffer;
+    var dur = buf.duration;
+    var len = snd.lengthMs > 0 ? Math.min(dur, snd.lengthMs / 1000) : dur;
+    var fromStart = snd.start === 'start' || (snd.start === 'mixed' && (ev.velocity >= 100 || Math.random() < 0.5));
+    var offset = fromStart ? 0 : Math.random() * Math.max(0, dur - Math.min(len, dur) * 0.5);
+    len = Math.min(len, dur - offset);
+    if (len <= 0.005) return;
+    var amp = 0.9 * Math.pow(ev.velocity / 127, 1.4);
+    var src = ctx.createBufferSource();
+    src.buffer = buf;
+    var g = ctx.createGain();
+    var fadeIn = offset > 0 ? 0.004 : 0.0005;
+    var fadeOut = Math.min(0.02, len * 0.3);
+    g.gain.setValueAtTime(0, when);
+    g.gain.linearRampToValueAtTime(amp, when + fadeIn);
+    g.gain.setValueAtTime(amp, when + len - fadeOut);
+    g.gain.linearRampToValueAtTime(0, when + len);
+    src.connect(g);
+    g.connect(laneGain[ev.lane]);
+    src.start(when, offset, len);
+    scheduled.push({ src: src, when: when });
   }
 
   function setTempo(v) {
@@ -407,28 +437,231 @@
     });
   }
   function noteName(n) { return NOTE_NAMES[n % 12] + (Math.floor(n / 12) - 2); }
+  // ---- lane sounds: placeholder synth, uploaded or recorded samples ----------
+  var START_MODES = [
+    ['start', 'From start'],
+    ['random', 'Random point'],
+    ['mixed', 'Mixed'],
+  ];
+  var sounds = lanes.map(function () {
+    return { source: 'synth', name: '', bytes: null, buffer: null, start: 'mixed', lengthMs: 0 };
+  });
+
+  function decodeInto(i, name, bytes, keep) {
+    ensureAudio();
+    // decodeAudioData detaches its input, so keep our own copy for storage.
+    return ctx.decodeAudioData(bytes.slice(0)).then(function (buffer) {
+      var snd = sounds[i];
+      snd.name = name;
+      snd.bytes = bytes;
+      snd.trim = keep === 'trim';
+      snd.buffer = snd.trim ? trimAndNormalize(buffer) : buffer;
+      snd.source = 'sample';
+      renderLane(i);
+      saveLane(i);
+      setStatus(lanes[i].name + ': ' + name + ' loaded (' + snd.buffer.duration.toFixed(2) + ' s).');
+    }, function () {
+      setStatus('Couldn’t read that file as audio. Try a WAV, AIFF, MP3 or M4A.');
+      renderLane(i);
+    });
+  }
+
+  // Recordings: skip the silence before the first sound, normalise the peak.
+  function trimAndNormalize(buffer) {
+    var ch = buffer.getChannelData(0);
+    var peak = 0;
+    for (var k = 0; k < ch.length; k++) peak = Math.max(peak, Math.abs(ch[k]));
+    if (peak < 1e-4) return buffer;
+    var start = 0;
+    while (start < ch.length && Math.abs(ch[start]) < peak * 0.08) start++;
+    start = Math.max(0, start - Math.round(buffer.sampleRate * 0.005));
+    var n = ch.length - start;
+    var out = ctx.createBuffer(1, n, buffer.sampleRate);
+    var o = out.getChannelData(0);
+    var gain = 0.9 / peak;
+    for (var j = 0; j < n; j++) o[j] = ch[start + j] * gain;
+    return out;
+  }
+
+  function loadFile(i, file) {
+    if (!file) return;
+    file.arrayBuffer().then(function (bytes) { decodeInto(i, file.name, bytes); });
+  }
+
+  // Microphone recording (allowed in a normal browser tab; refused inside Claude).
+  var recorder = null;
+  function toggleRecord(i) {
+    var btn = document.getElementById('rec-' + i);
+    if (recorder && recorder.lane === i) {
+      recorder.mr.stop();
+      return;
+    }
+    if (recorder) recorder.mr.stop();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+      setStatus('Recording needs a browser with microphone access. Upload a sample instead.');
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } }).then(function (stream) {
+      var chunks = [];
+      var mr = new MediaRecorder(stream);
+      var started = Date.now();
+      recorder = { lane: i, mr: mr, timer: null };
+      mr.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+      mr.onstop = function () {
+        clearInterval(recorder.timer);
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        recorder = null;
+        btn.textContent = 'Record';
+        btn.setAttribute('aria-pressed', 'false');
+        new Blob(chunks, { type: mr.mimeType }).arrayBuffer().then(function (bytes) {
+          decodeInto(i, 'Recording ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }), bytes, 'trim');
+        });
+      };
+      mr.start();
+      btn.setAttribute('aria-pressed', 'true');
+      recorder.timer = setInterval(function () {
+        var t = (Date.now() - started) / 1000;
+        btn.textContent = 'Stop · ' + t.toFixed(1) + ' s';
+        if (t >= 10) mr.stop();
+      }, 100);
+      btn.textContent = 'Stop · 0.0 s';
+      setStatus('Recording for ' + lanes[i].name + '. Make the sound, then press Stop (10 s at most).');
+    }, function () {
+      setStatus('The microphone isn’t available here. Inside Claude it’s blocked: open the local copy of this page (generative-sequencer/preview/organic-preview.html) in Chrome to record, or upload a file.');
+    });
+  }
+
+  function setStatus(t) { $('status').textContent = t; }
+
   function buildLanes() {
     var box = $('lanes');
     lanes.forEach(function (lane, i) {
       var row = document.createElement('div');
       row.className = 'lane';
+      row.id = 'lane-' + i;
       row.innerHTML =
+        '<div class="lane-head">' +
         '<span class="swatch" style="background:var(' + LANE_COLORS[i % 4] + ')"></span>' +
-        '<span><span class="name">' + lane.name + '</span> <span class="note">' + noteName(lane.note) + ' · ' + lane.note + '</span></span>' +
-        '<input type="range" min="0" max="1" step="0.01" value="0.8" id="level-' + i + '" aria-label="' + lane.name + ' level">' +
-        '<button type="button" id="mute-' + i + '" aria-pressed="false">Mute</button>';
+        '<span class="lane-title"><span class="name">' + lane.name + '</span> <span class="note">' + noteName(lane.note) + ' · ' + lane.note + '</span></span>' +
+        '<select id="sound-' + i + '" aria-label="' + lane.name + ' sound"></select>' +
+        '<button type="button" id="mute-' + i + '" aria-pressed="false">Mute</button>' +
+        '</div>' +
+        '<div class="lane-body">' +
+        '<label class="mini" for="start-' + i + '">Start <select id="start-' + i + '"></select></label>' +
+        '<label class="mini" for="len-' + i + '">Length <input type="range" id="len-' + i + '" min="0" max="2000" step="10" value="0"><output id="len-out-' + i + '">full</output></label>' +
+        '<label class="mini" for="level-' + i + '">Level <input type="range" min="0" max="1" step="0.01" value="0.8" id="level-' + i + '"></label>' +
+        '<button type="button" id="rec-' + i + '" aria-pressed="false">Record</button>' +
+        '<input type="file" id="file-' + i + '" accept="audio/*" hidden>' +
+        '</div>';
       box.appendChild(row);
-      row.querySelector('input').addEventListener('input', function (e) {
+
+      var startSel = row.querySelector('#start-' + i);
+      START_MODES.forEach(function (m) {
+        var o = document.createElement('option');
+        o.value = m[0];
+        o.textContent = m[1];
+        startSel.appendChild(o);
+      });
+      startSel.addEventListener('change', function () { sounds[i].start = startSel.value; saveLane(i); });
+      var len = row.querySelector('#len-' + i);
+      len.addEventListener('input', function () { sounds[i].lengthMs = Number(len.value); renderLane(i); });
+      len.addEventListener('change', function () { saveLane(i); });
+      row.querySelector('#level-' + i).addEventListener('input', function (e) {
         levels[i] = Number(e.target.value);
         applyLevel(i);
       });
-      var mb = row.querySelector('button');
+      var mb = row.querySelector('#mute-' + i);
       mb.addEventListener('click', function () {
         muted[i] = !muted[i];
         mb.setAttribute('aria-pressed', String(muted[i]));
         applyLevel(i);
       });
+      var file = row.querySelector('#file-' + i);
+      file.addEventListener('change', function () { loadFile(i, file.files[0]); file.value = ''; });
+      row.querySelector('#rec-' + i).addEventListener('click', function () { toggleRecord(i); });
+      row.querySelector('#sound-' + i).addEventListener('change', function (e) {
+        var v = e.target.value;
+        if (v === 'upload') file.click();
+        else if (v === 'record') toggleRecord(i);
+        else {
+          sounds[i].source = v;
+          saveLane(i);
+        }
+        renderLane(i);
+      });
+      // Drop an audio file anywhere on the lane.
+      row.addEventListener('dragover', function (e) { e.preventDefault(); row.classList.add('drop'); });
+      row.addEventListener('dragleave', function () { row.classList.remove('drop'); });
+      row.addEventListener('drop', function (e) {
+        e.preventDefault();
+        row.classList.remove('drop');
+        loadFile(i, e.dataTransfer.files[0]);
+      });
+      renderLane(i);
     });
+  }
+
+  function renderLane(i) {
+    var snd = sounds[i];
+    var sel = document.getElementById('sound-' + i);
+    var opts = [['synth', 'Placeholder synth']];
+    if (snd.buffer) opts.push(['sample', 'Sample: ' + snd.name]);
+    opts.push(['upload', 'Upload a sample…'], ['record', 'Record with microphone…']);
+    sel.innerHTML = '';
+    opts.forEach(function (o) {
+      var el = document.createElement('option');
+      el.value = o[0];
+      el.textContent = o[1];
+      sel.appendChild(el);
+    });
+    sel.value = snd.source === 'sample' && snd.buffer ? 'sample' : 'synth';
+    var isSample = sel.value === 'sample';
+    document.getElementById('start-' + i).value = snd.start;
+    document.getElementById('start-' + i).disabled = !isSample;
+    document.getElementById('len-' + i).disabled = !isSample;
+    document.getElementById('len-' + i).value = snd.lengthMs;
+    document.getElementById('len-out-' + i).textContent = snd.lengthMs > 0 ? snd.lengthMs + ' ms' : 'full';
+    document.getElementById('lane-' + i).classList.toggle('sampled', isSample);
+  }
+
+  // Samples are kept in this browser (IndexedDB) so they survive a reload.
+  var DB_NAME = 'organic-groove-lab';
+  function openDb() {
+    return new Promise(function (resolve, reject) {
+      try {
+        var req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = function () { req.result.createObjectStore('lanes'); };
+        req.onsuccess = function () { resolve(req.result); };
+        req.onerror = function () { reject(req.error); };
+      } catch (e) { reject(e); }
+    });
+  }
+  function saveLane(i) {
+    var snd = sounds[i];
+    var rec = { source: snd.source, name: snd.name, bytes: snd.bytes, trim: snd.trim, start: snd.start, lengthMs: snd.lengthMs };
+    openDb().then(function (db) {
+      db.transaction('lanes', 'readwrite').objectStore('lanes').put(rec, lanes[i].note);
+    }).catch(function () { /* storage unavailable: samples last until reload */ });
+  }
+  function restoreLanes() {
+    openDb().then(function (db) {
+      lanes.forEach(function (lane, i) {
+        var req = db.transaction('lanes').objectStore('lanes').get(lane.note);
+        req.onsuccess = function () {
+          var r = req.result;
+          if (!r) return;
+          sounds[i].start = r.start || 'mixed';
+          sounds[i].lengthMs = r.lengthMs || 0;
+          if (r.bytes) {
+            decodeInto(i, r.name, r.bytes, r.trim ? 'trim' : undefined).then(function () {
+              sounds[i].source = r.source === 'sample' ? 'sample' : 'synth';
+              renderLane(i);
+              setStatus('');
+            });
+          } else renderLane(i);
+        };
+      });
+    }).catch(function () { /* no storage */ });
   }
 
   // ---- roll -----------------------------------------------------------------
@@ -544,6 +777,7 @@
     renderKnob(p);
   });
   buildLanes();
+  restoreLanes();
   refreshSettings();
 
   $('play').addEventListener('click', function () { if (playing) stop(); else start(true); });
@@ -583,5 +817,5 @@
   schedulePreview();
 
   // For tests: the notes a saved clip would contain.
-  window.__organicLab = { clipEvents: clipEvents, midiBytes: midiBytes, zipOne: zipOne, values: values };
+  window.__organicLab = { clipEvents: clipEvents, midiBytes: midiBytes, zipOne: zipOne, values: values, sounds: sounds, decodeInto: decodeInto };
 })();

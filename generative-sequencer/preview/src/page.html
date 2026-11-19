@@ -86,11 +86,22 @@ canvas#roll { display: block; width: 100%; height: 168px; }
 .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
 .lanes { display: grid; gap: 10px; }
-.lane { display: grid; grid-template-columns: 12px 1fr auto auto; align-items: center; gap: 10px; }
+.lane { display: grid; gap: 8px; padding: 10px; border-radius: 8px; background: var(--well); border: 1px dashed transparent; }
+.lane.drop { border-color: var(--accent); }
+.lane-head { display: grid; grid-template-columns: 12px minmax(0, 1fr) minmax(0, 190px) auto; align-items: center; gap: 10px; }
+.lane-title { min-width: 0; }
+.lane-head select { width: 100%; min-width: 0; text-overflow: ellipsis; }
+.lane-body { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding-left: 22px; }
+.lane:not(.sampled) .lane-body label:nth-child(-n+2) { opacity: 0.5; }
+label.mini { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+label.mini select { padding: 3px 6px; }
+label.mini output { font-family: var(--font-mono); font-size: 12px; min-width: 52px; }
+.lane-body input[type="range"] { width: 96px; accent-color: var(--accent); }
+.lane-body button { padding: 4px 10px; font-size: 12.5px; }
+@media (max-width: 460px) { .lane-head { grid-template-columns: 12px minmax(0, 1fr) auto; } .lane-head select { grid-column: 2 / -1; grid-row: 2; } }
 .swatch { width: 12px; height: 12px; border-radius: 3px; }
 .lane .name { font-weight: 600; }
 .lane .note { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
-.lane input[type="range"] { width: 110px; accent-color: var(--accent); }
 .hint { color: var(--muted); font-size: 13px; margin: 0; max-width: 62ch; }
 .settings { font-family: var(--font-mono); font-size: 12px; background: var(--well); border-radius: 7px; padding: 8px 10px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; margin: 0; }
 .status { font-size: 13px; color: var(--muted); min-height: 1.4em; }
@@ -130,9 +141,9 @@ canvas#roll { display: block; width: 100%; height: 168px; }
 
   <div class="cols">
     <section class="panel" aria-label="Kit">
-      <h2>Kit · placeholder sounds</h2>
+      <h2>Kit</h2>
       <div id="lanes" class="lanes"></div>
-      <p class="hint">Same notes as a standard Drum Rack, MIDI channel 1.</p>
+      <p class="hint">Pick a sound per lane: the placeholder synth, an uploaded sample (or drop a file on the lane), or a recording. Start sets where each hit plays from: <b>From start</b>, a <b>Random point</b>, or <b>Mixed</b> (accents from the start, other hits half the time from inside). Length shortens long samples. Samples stay in this browser. Lanes use Drum Rack notes on MIDI channel 1.</p>
     </section>
 
     <section class="panel" aria-label="Send to Ableton">
