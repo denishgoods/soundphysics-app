@@ -36,7 +36,8 @@ max/
 cli/
   simulate.js           N bars -> .mid + text / HTML piano roll
   compare.js            timing of a clip recorded in Live vs. the reference .mid
-examples/               BUILT: four 32-bar performances to audition
+examples/               BUILT: 32-bar performances to audition
+preview/                BUILT organic-preview.html: in-browser groove lab (src/ is the source)
 tools/                  bundler, patch generator, build script
 test/                   node:test suites (no dependencies)
 plugin/                 native plugin (C++17, JUCE 8)
@@ -57,6 +58,12 @@ npm run sim -- --bars 16 --seed 7                # text piano roll in the termin
 npm run sim -- --bars 32 --seed 7 --bpm 110 --out out/seed7.mid --html out/seed7.html
 npm run build                                    # regenerate max/ and examples/
 ```
+
+**Preview page**: `preview/organic-preview.html` (built from `preview/src/`) runs the same engine
+in the browser with placeholder drum sounds: play it, turn the knobs, switch modes, then save a
+MIDI clip for Ableton or copy the settings into the device. Opened locally in Chrome it can also
+send live MIDI (on a Mac via the IAC Driver). `node tools/build.js --artifact` writes the version
+published as a claude.ai artifact.
 
 `npm run sim -- --help` lists all options. To hear it without a DAW,
 `npm run render -- --mode irregular --bars 16 --out out/irregular.wav --mp3` plays the

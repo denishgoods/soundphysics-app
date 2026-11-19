@@ -15,63 +15,10 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 const E = require('../engine');
 const { Rng } = require('../engine/prng');
+const { VOICES } = require('./lib/kit');
 const { parseArgs } = require('./simulate');
 
 const SR = 44100;
-
-// One-shot voices: fn(t seconds, rng) -> sample, length in seconds, pan -1..1.
-const VOICES = {
-  36: {
-    len: 0.5,
-    pan: 0,
-    gain: 1.0,
-    fn(t, rng, st) {
-      const f = 48 + 110 * Math.exp(-t / 0.035);
-      st.ph = (st.ph || 0) + (2 * Math.PI * f) / SR;
-      const body = Math.sin(st.ph) * Math.exp(-t / 0.28);
-      const click = (rng.float() * 2 - 1) * Math.exp(-t / 0.002) * 0.3;
-      return body + click;
-    },
-  },
-  38: {
-    len: 0.35,
-    pan: 0.05,
-    gain: 0.7,
-    fn(t, rng, st) {
-      const n = rng.float() * 2 - 1;
-      st.lp = (st.lp || 0) + 0.35 * (n - (st.lp || 0));
-      const noise = (n - st.lp) * Math.exp(-t / 0.13);
-      st.ph = (st.ph || 0) + (2 * Math.PI * 185) / SR;
-      const tone = Math.sin(st.ph) * Math.exp(-t / 0.05) * 0.6;
-      return noise * 0.9 + tone;
-    },
-  },
-  42: {
-    len: 0.12,
-    pan: 0.35,
-    gain: 0.4,
-    fn(t, rng, st) {
-      const n = rng.float() * 2 - 1;
-      const hp = n - (st.prev || 0);
-      st.prev = n;
-      const hp2 = hp - (st.prev2 || 0) * 0.5;
-      st.prev2 = hp;
-      return hp2 * Math.exp(-t / 0.028);
-    },
-  },
-  37: {
-    len: 0.1,
-    pan: -0.35,
-    gain: 0.45,
-    fn(t, rng, st) {
-      st.a = (st.a || 0) + (2 * Math.PI * 820) / SR;
-      st.b = (st.b || 0) + (2 * Math.PI * 1710) / SR;
-      const tone = (Math.sin(st.a) + 0.5 * Math.sign(Math.sin(st.b))) * Math.exp(-t / 0.025);
-      const click = (rng.float() * 2 - 1) * Math.exp(-t / 0.003);
-      return tone * 0.6 + click * 0.4;
-    },
-  },
-};
 
 function render(events, bpm, seconds) {
   const n = Math.ceil(seconds * SR);
@@ -88,7 +35,7 @@ function render(events, bpm, seconds) {
     const len = Math.round(v.len * SR);
     for (let i = 0; i < len && start + i < n; i++) {
       if (start + i < 0) continue;
-      const s = v.fn(i / SR, rng, st);
+      const s = v.fn(i / SR, rng, st, SR);
       L[start + i] += s * gl;
       R[start + i] += s * gr;
     }

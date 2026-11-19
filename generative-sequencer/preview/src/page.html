@@ -1,0 +1,159 @@
+<title>Organic Groove Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: an instrument panel. Transport and roll on top, knobs in a rack below,
+   kit and "send to Ableton" side by side, stacking on phones. */
+:root {
+  --bg: #e7e9ec;
+  --panel: #f6f7f8;
+  --well: #dfe2e6;
+  --ink: #15181c;
+  --muted: #5c636c;
+  --line: #c9ced4;
+  --accent: #d2551c;
+  --accent-ink: #ffffff;
+  --kick: #c2410c;
+  --snare: #1d4ed8;
+  --hat: #047857;
+  --perc: #7c3aed;
+  --grid: rgba(21, 24, 28, 0.08);
+  --grid-strong: rgba(21, 24, 28, 0.28);
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121417; --panel: #1b1e22; --well: #23272c; --ink: #eceef1; --muted: #9aa2ac; --line: #30353c;
+    --accent: #f07a3c; --accent-ink: #15181c; --kick: #f08a4b; --snare: #6f97ff; --hat: #3fc79a; --perc: #b393ff;
+    --grid: rgba(236, 238, 241, 0.07); --grid-strong: rgba(236, 238, 241, 0.3); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121417; --panel: #1b1e22; --well: #23272c; --ink: #eceef1; --muted: #9aa2ac; --line: #30353c;
+  --accent: #f07a3c; --accent-ink: #15181c; --kick: #f08a4b; --snare: #6f97ff; --hat: #3fc79a; --perc: #b393ff;
+  --grid: rgba(236, 238, 241, 0.07); --grid-strong: rgba(236, 238, 241, 0.3); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 32px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 14px; }
+h1, h2 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.lede { margin: 2px 0 0; color: var(--muted); max-width: 70ch; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 12px; min-width: 0; align-content: start; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.spacer { flex: 1 1 auto; }
+button, select, input { font: inherit; color: inherit; }
+button {
+  background: var(--well); border: 1px solid var(--line); border-radius: 7px; padding: 7px 12px; cursor: pointer;
+  font-weight: 600;
+}
+button:hover { border-color: var(--grid-strong); }
+button:focus-visible, select:focus-visible, input:focus-visible, .knob:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); min-width: 96px; }
+button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: transparent; padding: 7px 14px; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+label.inline { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+input[type="number"], select { background: var(--well); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; }
+input[type="number"] { width: 84px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.readout { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); }
+.readout b { color: var(--ink); font-weight: 600; }
+.roll-wrap { position: relative; background: var(--well); border-radius: 8px; overflow: hidden; }
+canvas#roll { display: block; width: 100%; height: 168px; }
+.grouping { font-family: var(--font-mono); font-size: 13px; display: flex; gap: 4px; flex-wrap: wrap; align-items: center; min-height: 26px; }
+.grouping .g { padding: 2px 7px; border-radius: 5px; background: var(--well); border: 1px solid var(--line); }
+.grouping .g.now { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.rack { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 10px; }
+.knob-cell { display: grid; justify-items: center; align-content: start; gap: 2px; padding: 8px 4px; border-radius: 8px; background: var(--well); text-align: center; min-width: 0; }
+.knob { width: 64px; height: 64px; cursor: ns-resize; touch-action: none; border-radius: 50%; }
+.knob svg { width: 100%; height: 100%; display: block; }
+.knob .track { stroke: var(--line); }
+.knob .value { stroke: var(--accent); }
+.knob .cap { fill: var(--panel); stroke: var(--line); }
+.knob .pointer { stroke: var(--ink); }
+.knob-name { font-family: var(--font-display); font-weight: 700; font-size: 13px; letter-spacing: 0.02em; }
+.knob-val { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.knob-doc { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+.lanes { display: grid; gap: 10px; }
+.lane { display: grid; grid-template-columns: 12px 1fr auto auto; align-items: center; gap: 10px; }
+.swatch { width: 12px; height: 12px; border-radius: 3px; }
+.lane .name { font-weight: 600; }
+.lane .note { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.lane input[type="range"] { width: 110px; accent-color: var(--accent); }
+.hint { color: var(--muted); font-size: 13px; margin: 0; max-width: 62ch; }
+.settings { font-family: var(--font-mono); font-size: 12px; background: var(--well); border-radius: 7px; padding: 8px 10px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; margin: 0; }
+.status { font-size: 13px; color: var(--muted); min-height: 1.4em; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="row">
+    <div>
+      <h1>Organic Groove Lab</h1>
+      <p class="lede">The generative drum engine from the Max device and the plugin, running here with placeholder sounds. Shape a groove, then save it as a MIDI clip for Ableton or copy the settings into the device.</p>
+    </div>
+  </header>
+
+  <section class="panel" aria-label="Transport and pattern">
+    <div class="row">
+      <button id="play" class="primary" type="button">Play</button>
+      <button id="restart" type="button" title="Start the performance again from bar 1">From bar 1</button>
+      <label class="inline" for="bpm">Tempo <input id="bpm" type="number" min="60" max="200" step="1" value="120"></label>
+      <div class="seg" role="group" aria-label="Pattern type" id="mode"></div>
+      <span class="spacer"></span>
+      <span class="readout" id="pos">bar <b>1</b> · beat <b>1</b></span>
+    </div>
+    <div class="roll-wrap"><canvas id="roll" aria-label="Notes being played, Kick to Perc from top to bottom"></canvas></div>
+    <div class="grouping" id="grouping" aria-live="polite"></div>
+  </section>
+
+  <section class="panel" aria-label="Knobs">
+    <div class="row"><h2>Knobs</h2><span class="spacer"></span>
+      <label class="inline" for="seed">Seed <input id="seed" type="number" min="0" max="9999" step="1" value="1"></label>
+      <button id="dice" type="button" title="Pick a random seed">New seed</button>
+      <button id="reset" type="button">Reset knobs</button>
+    </div>
+    <div class="rack" id="rack"></div>
+    <p class="hint">Drag a knob up or down (Shift for fine steps), scroll on it, or use the arrow keys. Double-click resets it. Changes are heard within a beat or two.</p>
+  </section>
+
+  <div class="cols">
+    <section class="panel" aria-label="Kit">
+      <h2>Kit · placeholder sounds</h2>
+      <div id="lanes" class="lanes"></div>
+      <p class="hint">Same notes as a standard Drum Rack, MIDI channel 1.</p>
+    </section>
+
+    <section class="panel" aria-label="Send to Ableton">
+      <h2>Send to Ableton</h2>
+      <div class="row">
+        <label class="inline" for="bars">Length
+          <select id="bars"><option value="4">4 bars</option><option value="8" selected>8 bars</option><option value="16">16 bars</option><option value="32">32 bars</option></select>
+        </label>
+        <button id="save" type="button" class="primary">Save MIDI clip</button>
+      </div>
+      <p class="hint" id="save-hint">The clip starts at bar 1 with the current knobs and tempo. Drag it onto a Drum Rack track.</p>
+      <div class="row"><button id="copy" type="button">Copy settings</button><span class="hint">to dial into the Max device or plugin: from bar 1 they play exactly this.</span></div>
+      <pre class="settings" id="settings"></pre>
+      <div class="row" id="midi-row">
+        <button id="midi" type="button">Send live MIDI…</button>
+        <select id="midi-out" hidden aria-label="MIDI output"></select>
+      </div>
+      <p class="status" id="status" role="status"></p>
+    </section>
+  </div>
+</div>
+
+<script>/*__BUNDLE__*/</script>
+<script>/*__APP__*/</script>

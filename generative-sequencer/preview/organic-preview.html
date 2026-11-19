@@ -1,0 +1,3176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Organic Groove Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: an instrument panel. Transport and roll on top, knobs in a rack below,
+   kit and "send to Ableton" side by side, stacking on phones. */
+:root {
+  --bg: #e7e9ec;
+  --panel: #f6f7f8;
+  --well: #dfe2e6;
+  --ink: #15181c;
+  --muted: #5c636c;
+  --line: #c9ced4;
+  --accent: #d2551c;
+  --accent-ink: #ffffff;
+  --kick: #c2410c;
+  --snare: #1d4ed8;
+  --hat: #047857;
+  --perc: #7c3aed;
+  --grid: rgba(21, 24, 28, 0.08);
+  --grid-strong: rgba(21, 24, 28, 0.28);
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121417; --panel: #1b1e22; --well: #23272c; --ink: #eceef1; --muted: #9aa2ac; --line: #30353c;
+    --accent: #f07a3c; --accent-ink: #15181c; --kick: #f08a4b; --snare: #6f97ff; --hat: #3fc79a; --perc: #b393ff;
+    --grid: rgba(236, 238, 241, 0.07); --grid-strong: rgba(236, 238, 241, 0.3); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121417; --panel: #1b1e22; --well: #23272c; --ink: #eceef1; --muted: #9aa2ac; --line: #30353c;
+  --accent: #f07a3c; --accent-ink: #15181c; --kick: #f08a4b; --snare: #6f97ff; --hat: #3fc79a; --perc: #b393ff;
+  --grid: rgba(236, 238, 241, 0.07); --grid-strong: rgba(236, 238, 241, 0.3); color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink); font: 14px/1.45 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 32px;
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: grid; gap: 14px; }
+h1, h2 { font-family: var(--font-display); margin: 0; text-wrap: balance; }
+h1 { font-size: 26px; font-weight: 800; letter-spacing: -0.01em; }
+h2 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.lede { margin: 2px 0 0; color: var(--muted); max-width: 70ch; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 12px; min-width: 0; align-content: start; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.spacer { flex: 1 1 auto; }
+button, select, input { font: inherit; color: inherit; }
+button {
+  background: var(--well); border: 1px solid var(--line); border-radius: 7px; padding: 7px 12px; cursor: pointer;
+  font-weight: 600;
+}
+button:hover { border-color: var(--grid-strong); }
+button:focus-visible, select:focus-visible, input:focus-visible, .knob:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); min-width: 96px; }
+button[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: transparent; padding: 7px 14px; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--panel); }
+label.inline { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+input[type="number"], select { background: var(--well); border: 1px solid var(--line); border-radius: 7px; padding: 6px 8px; }
+input[type="number"] { width: 84px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.readout { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); }
+.readout b { color: var(--ink); font-weight: 600; }
+.roll-wrap { position: relative; background: var(--well); border-radius: 8px; overflow: hidden; }
+canvas#roll { display: block; width: 100%; height: 168px; }
+.grouping { font-family: var(--font-mono); font-size: 13px; display: flex; gap: 4px; flex-wrap: wrap; align-items: center; min-height: 26px; }
+.grouping .g { padding: 2px 7px; border-radius: 5px; background: var(--well); border: 1px solid var(--line); }
+.grouping .g.now { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.rack { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 10px; }
+.knob-cell { display: grid; justify-items: center; align-content: start; gap: 2px; padding: 8px 4px; border-radius: 8px; background: var(--well); text-align: center; min-width: 0; }
+.knob { width: 64px; height: 64px; cursor: ns-resize; touch-action: none; border-radius: 50%; }
+.knob svg { width: 100%; height: 100%; display: block; }
+.knob .track { stroke: var(--line); }
+.knob .value { stroke: var(--accent); }
+.knob .cap { fill: var(--panel); stroke: var(--line); }
+.knob .pointer { stroke: var(--ink); }
+.knob-name { font-family: var(--font-display); font-weight: 700; font-size: 13px; letter-spacing: 0.02em; }
+.knob-val { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.knob-doc { font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+.lanes { display: grid; gap: 10px; }
+.lane { display: grid; grid-template-columns: 12px 1fr auto auto; align-items: center; gap: 10px; }
+.swatch { width: 12px; height: 12px; border-radius: 3px; }
+.lane .name { font-weight: 600; }
+.lane .note { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.lane input[type="range"] { width: 110px; accent-color: var(--accent); }
+.hint { color: var(--muted); font-size: 13px; margin: 0; max-width: 62ch; }
+.settings { font-family: var(--font-mono); font-size: 12px; background: var(--well); border-radius: 7px; padding: 8px 10px; overflow-x: auto; white-space: pre-wrap; word-break: break-word; margin: 0; }
+.status { font-size: 13px; color: var(--muted); min-height: 1.4em; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="row">
+    <div>
+      <h1>Organic Groove Lab</h1>
+      <p class="lede">The generative drum engine from the Max device and the plugin, running here with placeholder sounds. Shape a groove, then save it as a MIDI clip for Ableton or copy the settings into the device.</p>
+    </div>
+  </header>
+
+  <section class="panel" aria-label="Transport and pattern">
+    <div class="row">
+      <button id="play" class="primary" type="button">Play</button>
+      <button id="restart" type="button" title="Start the performance again from bar 1">From bar 1</button>
+      <label class="inline" for="bpm">Tempo <input id="bpm" type="number" min="60" max="200" step="1" value="120"></label>
+      <div class="seg" role="group" aria-label="Pattern type" id="mode"></div>
+      <span class="spacer"></span>
+      <span class="readout" id="pos">bar <b>1</b> · beat <b>1</b></span>
+    </div>
+    <div class="roll-wrap"><canvas id="roll" aria-label="Notes being played, Kick to Perc from top to bottom"></canvas></div>
+    <div class="grouping" id="grouping" aria-live="polite"></div>
+  </section>
+
+  <section class="panel" aria-label="Knobs">
+    <div class="row"><h2>Knobs</h2><span class="spacer"></span>
+      <label class="inline" for="seed">Seed <input id="seed" type="number" min="0" max="9999" step="1" value="1"></label>
+      <button id="dice" type="button" title="Pick a random seed">New seed</button>
+      <button id="reset" type="button">Reset knobs</button>
+    </div>
+    <div class="rack" id="rack"></div>
+    <p class="hint">Drag a knob up or down (Shift for fine steps), scroll on it, or use the arrow keys. Double-click resets it. Changes are heard within a beat or two.</p>
+  </section>
+
+  <div class="cols">
+    <section class="panel" aria-label="Kit">
+      <h2>Kit · placeholder sounds</h2>
+      <div id="lanes" class="lanes"></div>
+      <p class="hint">Same notes as a standard Drum Rack, MIDI channel 1.</p>
+    </section>
+
+    <section class="panel" aria-label="Send to Ableton">
+      <h2>Send to Ableton</h2>
+      <div class="row">
+        <label class="inline" for="bars">Length
+          <select id="bars"><option value="4">4 bars</option><option value="8" selected>8 bars</option><option value="16">16 bars</option><option value="32">32 bars</option></select>
+        </label>
+        <button id="save" type="button" class="primary">Save MIDI clip</button>
+      </div>
+      <p class="hint" id="save-hint">The clip starts at bar 1 with the current knobs and tempo. Drag it onto a Drum Rack track.</p>
+      <div class="row"><button id="copy" type="button">Copy settings</button><span class="hint">to dial into the Max device or plugin: from bar 1 they play exactly this.</span></div>
+      <pre class="settings" id="settings"></pre>
+      <div class="row" id="midi-row">
+        <button id="midi" type="button">Send live MIDI…</button>
+        <select id="midi-out" hidden aria-label="MIDI output"></select>
+      </div>
+      <p class="status" id="status" role="status"></p>
+    </section>
+  </div>
+</div>
+
+<script>
+// GENERATED by tools/build.js from engine/, cli/lib/ and preview/src/. Do not edit.
+var OrganicPreviewLib = (function () {
+  var defs = {};
+  // ---- cli/lib/kit.js
+  defs["cli/lib/kit.js"] = [function (module, exports, require) {
+'use strict';
+
+// Placeholder drum kit, synthesized: sine-sweep kick, noise snare, hats, rim.
+// Pure JS (no Node or browser APIs), shared by cli/render-audio.js and the
+// preview page. Deliberately plain, so rhythm, timing and dynamics are what
+// you hear.
+
+const { Rng } = require('../../engine/prng');
+
+// One-shot voices by MIDI note: fn(t seconds, rng, state, sampleRate) ->
+// sample, length in seconds, pan -1..1, gain.
+const VOICES = {
+  36: {
+    len: 0.5,
+    pan: 0,
+    gain: 1.0,
+    fn(t, rng, st, sr) {
+      const f = 48 + 110 * Math.exp(-t / 0.035);
+      st.ph = (st.ph || 0) + (2 * Math.PI * f) / sr;
+      const body = Math.sin(st.ph) * Math.exp(-t / 0.28);
+      const click = (rng.float() * 2 - 1) * Math.exp(-t / 0.002) * 0.3;
+      return body + click;
+    },
+  },
+  38: {
+    len: 0.35,
+    pan: 0.05,
+    gain: 0.7,
+    fn(t, rng, st, sr) {
+      const n = rng.float() * 2 - 1;
+      st.lp = (st.lp || 0) + 0.35 * (n - (st.lp || 0));
+      const noise = (n - st.lp) * Math.exp(-t / 0.13);
+      st.ph = (st.ph || 0) + (2 * Math.PI * 185) / sr;
+      const tone = Math.sin(st.ph) * Math.exp(-t / 0.05) * 0.6;
+      return noise * 0.9 + tone;
+    },
+  },
+  42: {
+    len: 0.12,
+    pan: 0.35,
+    gain: 0.4,
+    fn(t, rng, st, sr) {
+      const n = rng.float() * 2 - 1;
+      const hp = n - (st.prev || 0);
+      st.prev = n;
+      const hp2 = hp - (st.prev2 || 0) * 0.5;
+      st.prev2 = hp;
+      return hp2 * Math.exp(-t / 0.028);
+    },
+  },
+  37: {
+    len: 0.1,
+    pan: -0.35,
+    gain: 0.45,
+    fn(t, rng, st, sr) {
+      st.a = (st.a || 0) + (2 * Math.PI * 820) / sr;
+      st.b = (st.b || 0) + (2 * Math.PI * 1710) / sr;
+      const tone = (Math.sin(st.a) + 0.5 * Math.sign(Math.sin(st.b))) * Math.exp(-t / 0.025);
+      const click = (rng.float() * 2 - 1) * Math.exp(-t / 0.003);
+      return tone * 0.6 + click * 0.4;
+    },
+  },
+};
+
+
+// Renders one hit at full velocity. Scale by velocityGain(velocity).
+function renderVoice(note, sampleRate, seed) {
+  const v = VOICES[note] || VOICES[37];
+  const rng = new Rng(seed || 4242);
+  const len = Math.round(v.len * sampleRate);
+  const out = new Float32Array(len);
+  const st = {};
+  for (let i = 0; i < len; i++) out[i] = v.fn(i / sampleRate, rng, st, sampleRate);
+  return out;
+}
+
+function velocityGain(note, velocity) {
+  const v = VOICES[note] || VOICES[37];
+  return v.gain * Math.pow(velocity / 127, 1.6);
+}
+
+module.exports = { VOICES, renderVoice, velocityGain };
+  }, {"../../engine/prng":"engine/prng.js"}];
+  // ---- cli/lib/midifile.js
+  defs["cli/lib/midifile.js"] = [function (module, exports, require) {
+'use strict';
+
+// Minimal Standard MIDI File writer and reader (format 0/1). No dependencies;
+// works on Uint8Array so it isn't tied to Node's Buffer.
+
+function vlq(n) {
+  n = Math.max(0, Math.round(n));
+  const bytes = [n & 0x7f];
+  n = Math.floor(n / 128);
+  while (n > 0) {
+    bytes.unshift((n & 0x7f) | 0x80);
+    n = Math.floor(n / 128);
+  }
+  return bytes;
+}
+
+function u32(n) {
+  return [(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff];
+}
+
+function u16(n) {
+  return [(n >>> 8) & 0xff, n & 0xff];
+}
+
+function ascii(s) {
+  const out = [];
+  for (let i = 0; i < s.length; i++) out.push(s.charCodeAt(i) & 0x7f);
+  return out;
+}
+
+// notes: [{ beat, note, velocity, duration, channel? }] (beats = quarter notes)
+// Writes a format-0 file: tempo and time signature, then notes. Note-offs at
+// the same tick as a note-on are written first.
+function writeMidi(opts) {
+  const ppq = opts.ppq || 960;
+  const bpm = opts.bpm || 120;
+  const meter = opts.meter || { num: 4, den: 4 };
+  const msg = [];
+  for (const n of opts.notes) {
+    const ch = (n.channel || 0) & 0x0f;
+    const on = Math.max(0, Math.round(n.beat * ppq));
+    const off = Math.max(on + 1, Math.round((n.beat + n.duration) * ppq));
+    msg.push({ tick: on, order: 1, bytes: [0x90 | ch, n.note & 0x7f, Math.max(1, Math.min(127, n.velocity))] });
+    msg.push({ tick: off, order: 0, bytes: [0x80 | ch, n.note & 0x7f, 0] });
+  }
+  msg.sort((a, b) => a.tick - b.tick || a.order - b.order);
+
+  const tr = [];
+  const name = ascii(opts.name || 'organic');
+  tr.push(0, 0xff, 0x03, ...vlq(name.length), ...name);
+  const usPerQ = Math.round(60000000 / bpm);
+  tr.push(0, 0xff, 0x51, 0x03, (usPerQ >>> 16) & 0xff, (usPerQ >>> 8) & 0xff, usPerQ & 0xff);
+  tr.push(0, 0xff, 0x58, 0x04, meter.num, Math.round(Math.log2(meter.den)), 24, 8);
+  let last = 0;
+  for (const m of msg) {
+    tr.push(...vlq(m.tick - last), ...m.bytes);
+    last = m.tick;
+  }
+  tr.push(0, 0xff, 0x2f, 0x00);
+
+  const head = [...ascii('MThd'), ...u32(6), ...u16(0), ...u16(1), ...u16(ppq)];
+  const track = [...ascii('MTrk'), ...u32(tr.length), ...tr];
+  return Uint8Array.from(head.concat(track));
+}
+
+// Returns { format, ppq, tempos: [{tick, bpm}], notes: [{beat, note, velocity, duration, channel, track}] }.
+function readMidi(data) {
+  const b = data instanceof Uint8Array ? data : Uint8Array.from(data);
+  let p = 0;
+  const str = (n) => {
+    let s = '';
+    for (let i = 0; i < n; i++) s += String.fromCharCode(b[p + i]);
+    p += n;
+    return s;
+  };
+  const r32 = () => {
+    const v = ((b[p] << 24) | (b[p + 1] << 16) | (b[p + 2] << 8) | b[p + 3]) >>> 0;
+    p += 4;
+    return v;
+  };
+  const r16 = () => {
+    const v = (b[p] << 8) | b[p + 1];
+    p += 2;
+    return v;
+  };
+  const rv = () => {
+    let v = 0;
+    for (;;) {
+      const c = b[p++];
+      v = v * 128 + (c & 0x7f);
+      if (!(c & 0x80)) return v;
+    }
+  };
+  if (str(4) !== 'MThd') throw new Error('not a MIDI file');
+  const hlen = r32();
+  const format = r16();
+  const ntracks = r16();
+  const division = r16();
+  p += hlen - 6;
+  if (division & 0x8000) throw new Error('SMPTE time division is not supported');
+  const ppq = division;
+  const tempos = [];
+  const notes = [];
+  for (let t = 0; t < ntracks && p < b.length; t++) {
+    const id = str(4);
+    const len = r32();
+    const end = p + len;
+    if (id !== 'MTrk') {
+      p = end;
+      continue;
+    }
+    let tick = 0;
+    let status = 0;
+    const open = {};
+    while (p < end) {
+      tick += rv();
+      let s = b[p];
+      if (s & 0x80) p++;
+      else s = status; // running status
+      if (s === 0xff) {
+        const type = b[p++];
+        const l = rv();
+        if (type === 0x51 && l === 3) tempos.push({ tick, bpm: 60000000 / ((b[p] << 16) | (b[p + 1] << 8) | b[p + 2]) });
+        p += l;
+        continue;
+      }
+      if (s === 0xf0 || s === 0xf7) {
+        p += rv();
+        continue;
+      }
+      status = s;
+      const type = s & 0xf0;
+      const ch = s & 0x0f;
+      const d1 = b[p++];
+      const d2 = type === 0xc0 || type === 0xd0 ? 0 : b[p++];
+      if (type === 0x90 && d2 > 0) {
+        const key = ch * 128 + d1;
+        (open[key] = open[key] || []).push({ tick, velocity: d2 });
+      } else if (type === 0x80 || (type === 0x90 && d2 === 0)) {
+        const key = ch * 128 + d1;
+        const q = open[key];
+        if (q && q.length) {
+          const on = q.shift();
+          notes.push({ beat: on.tick / ppq, note: d1, velocity: on.velocity, duration: (tick - on.tick) / ppq, channel: ch, track: t });
+        }
+      }
+    }
+    p = end;
+  }
+  notes.sort((x, y) => x.beat - y.beat || x.note - y.note);
+  return { format, ppq, tempos, notes };
+}
+
+module.exports = { writeMidi, readMidi };
+  }, {}];
+  // ---- engine/generators/index.js
+  defs["engine/generators/index.js"] = [function (module, exports, require) {
+'use strict';
+
+// Generator modes. A mode is an object:
+//
+//   id            string
+//   maxDeviation  largest |event.beat - anchor| it can produce, in beats
+//   init(state)   fresh performance state (called on every reset)
+//   reseed(state) optional: the seed changed while playing
+//   generate(startBeat, endBeat, state) -> Event[]
+//
+// generate() is called on consecutive, non-overlapping anchor windows and
+// must return the events anchored in [startBeat, endBeat). Event =
+// { beat, lane, note, velocity, duration } with beat/duration in beats.
+// Modes read shared modulators from state.mods and keep private state in
+// state.gen. The Timeline turns this into the public, final-beat API.
+//
+// Planned: mathematical, physical.
+
+const organic = require('./organic');
+const irregular = require('./irregular');
+
+const GENERATORS = { organic, irregular };
+// Order of the Mode parameter's options.
+const MODES = ['organic', 'irregular'];
+
+function getGenerator(id) {
+  const g = GENERATORS[id || 'organic'];
+  if (!g) throw new Error('unknown generator mode: ' + id);
+  return g;
+}
+
+module.exports = { GENERATORS, MODES, getGenerator };
+  }, {"./organic":"engine/generators/organic/index.js","./irregular":"engine/generators/irregular/index.js"}];
+  // ---- engine/generators/irregular/index.js
+  defs["engine/generators/irregular/index.js"] = [function (module, exports, require) {
+'use strict';
+
+const { hash32, Rng } = require('../../prng');
+const { ROLES } = require('../../lanes');
+const { MAX_DEV, finishPlan, getPlan, generateFromPlans, laneDensity } = require('../shared');
+
+// The "irregular" generator: odd groupings over a steady pulse.
+//
+// The bar is counted in units (16ths in x/4, 8ths in x/8) and a *grouping*
+// splits a cycle of units into groups of 2, 3, 4 and occasionally 5 (e.g.
+// 3+3+2, 3+3+3+3+2+2, 2+2+3). Accents and the kit follow the groups, not the
+// bar: the kick takes group starts, the snare answers on alternate groups,
+// hats accent every group start, perc plays pickups into the next group.
+//
+// A cycle can be longer or shorter than the bar (Looseness makes that more
+// likely), so the pattern slides across the bar line and realigns at every
+// phrase start. Memory decides how long a grouping holds: changes happen at
+// phrase starts (back to an earlier grouping, a variation such as swapping
+// 3+2 for 2+3, or a new one), and with low Memory also mid-phrase.
+//
+// The notes for a cycle position depend only on (seed, grouping, position),
+// so a bar-aligned grouping repeats exactly; per-bar variation and fills sit
+// on top, and all feel controls come from the shared renderer.
+
+const SALT_PLAN = 0x1a2b;
+const SALT_FIGURE = 0x3c4d;
+const BANK_SIZE = 4;
+
+function unitOf(meter) {
+  return meter.den >= 8 ? meter.beatLen : 0.25;
+}
+
+function unitsPerBar(meter) {
+  return Math.max(1, Math.round(meter.barLen / unitOf(meter)));
+}
+
+const SIZES = [2, 3, 4, 5];
+
+function sizeWeight(s, looseness) {
+  if (s === 3) return 4;
+  if (s === 2) return 3;
+  if (s === 4) return 0.8;
+  return 0.15 + 0.8 * looseness;
+}
+
+// Group lengths filling one cycle. Avoids leaving a single unit and prefers
+// groupings that contain at least one 3 or 5 (otherwise it's just 4/4).
+function newGrouping(rng, U, looseness) {
+  let cycle = U;
+  if (U >= 6 && rng.chance(0.2 + 0.5 * looseness)) {
+    const deltas = [-3, -2, -1, 1, 2, 3];
+    cycle = Math.max(5, U + deltas[rng.int(deltas.length)]);
+  } else if (U <= 8 && rng.chance(0.3)) {
+    cycle = 2 * U;
+  }
+  let groups = [];
+  for (let attempt = 0; attempt < 4; attempt++) {
+    groups = [];
+    let rem = cycle;
+    while (rem > 0) {
+      const sizes = SIZES.filter((s) => s <= rem && rem - s !== 1);
+      if (!sizes.length) {
+        groups.push(rem);
+        break;
+      }
+      const s = sizes[rng.weighted(sizes.map((x) => sizeWeight(x, looseness)))];
+      groups.push(s);
+      rem -= s;
+    }
+    if (groups.some((g) => g === 3 || g === 5)) break;
+  }
+  return groups;
+}
+
+// A recognisable variant: swap a neighbouring 3+2, split or merge 2s and 4s,
+// trade 3+3 for 2+2+2, or rotate the cycle.
+function varyGrouping(groups, rng) {
+  const g = groups.slice();
+  const op = rng.int(4);
+  if (op === 0) {
+    const idx = [];
+    for (let i = 0; i + 1 < g.length; i++) if (g[i] !== g[i + 1]) idx.push(i);
+    if (idx.length) {
+      const i = idx[rng.int(idx.length)];
+      const t = g[i];
+      g[i] = g[i + 1];
+      g[i + 1] = t;
+      return g;
+    }
+  } else if (op === 1) {
+    const fours = [];
+    const pairs = [];
+    for (let i = 0; i < g.length; i++) {
+      if (g[i] === 4) fours.push(i);
+      if (i + 1 < g.length && g[i] === 2 && g[i + 1] === 2) pairs.push(i);
+    }
+    if (fours.length || pairs.length) {
+      if (fours.length && (!pairs.length || rng.chance(0.5))) {
+        const i = fours[rng.int(fours.length)];
+        g.splice(i, 1, 2, 2);
+      } else {
+        const i = pairs[rng.int(pairs.length)];
+        g.splice(i, 2, 4);
+      }
+      return g;
+    }
+  } else if (op === 2) {
+    for (let i = 0; i + 1 < g.length; i++) {
+      if (g[i] === 3 && g[i + 1] === 3) {
+        g.splice(i, 2, 2, 2, 2);
+        return g;
+      }
+      if (i + 2 < g.length && g[i] === 2 && g[i + 1] === 2 && g[i + 2] === 2) {
+        g.splice(i, 3, 3, 3);
+        return g;
+      }
+    }
+  }
+  g.push(g.shift());
+  return g;
+}
+
+function clampPos(pos, barLen) {
+  return Math.min(barLen - 1e-6, Math.max(0, pos));
+}
+
+function noteId(figId, c, li, kind) {
+  return hash32(SALT_FIGURE, figId, c, li * 4 + kind) >>> 1;
+}
+
+// The bar's candidates for a grouping at a given phase (cycle position of the
+// bar's first unit). Per-position randomness is keyed by (figure, position),
+// so the same position always yields the same notes.
+function figureNotes(fig, phase, st) {
+  const meter = st.meter;
+  const unit = unitOf(meter);
+  const U = unitsPerBar(meter);
+  const groups = fig.groups;
+  const starts = [];
+  let cycle = 0;
+  for (const g of groups) {
+    starts.push(cycle);
+    cycle += g;
+  }
+  const lanes = st.lanes;
+  const looseness = st.p.looseness;
+  const cand = lanes.map(() => ({ main: [], ghost: [] }));
+
+  for (let i = 0; i < U; i++) {
+    const c = (phase + i) % cycle;
+    let gj = 0;
+    while (gj + 1 < starts.length && starts[gj + 1] <= c) gj++;
+    const off = c - starts[gj];
+    const L = groups[gj];
+    const isStart = off === 0;
+    const cycleStart = c === 0;
+    const r = new Rng(hash32(st.seed, SALT_FIGURE, fig.id, c));
+    const base = i * unit;
+
+    for (let li = 0; li < lanes.length; li++) {
+      const roleId = lanes[li].role;
+      const role = ROLES[roleId];
+      const main = (imp, w) => {
+        const disp = r.gauss() * looseness * 0.02;
+        const accent = r.chance(role.accentP * (isStart ? 1 : 0.3)) ? r.range(0.5, 1) : 0;
+        const flam = accent > 0 && role.flam > 0 && r.chance(role.flam);
+        cand[li].main.push({
+          imp: imp * r.range(0.9, 1.1),
+          note: { id: noteId(fig.id, c, li, 0), lane: li, pos: clampPos(base + disp, meter.barLen), att: base, fam: 'main', kind: 'main', prio: 0, accent, flam, w },
+        });
+      };
+      const ghost = (imp) => {
+        cand[li].ghost.push({
+          imp: imp * r.range(0.9, 1.1),
+          note: { id: noteId(fig.id, c, li, 1), lane: li, pos: base, att: base, fam: 'main', kind: 'ghost', prio: 0, accent: 0, flam: false },
+        });
+      };
+      if (roleId === 'anchor') {
+        if (isStart) main(cycleStart ? 1 : gj % 2 === 0 ? (L >= 3 ? 0.75 : 0.55) : 0.3, cycleStart ? 1 : 0.85);
+        else if (off === 2 && L >= 4) main(0.2, 0.5);
+      } else if (roleId === 'backbeat') {
+        if (isStart && gj % 2 === 1) main(0.9, 0.85);
+        else if (isStart && !cycleStart) main(0.12, 0.7);
+        else if (!isStart && off === L - 1) ghost(0.6);
+        else if (!isStart && off === 1 && L >= 3) ghost(0.35);
+      } else if (roleId === 'pulse') {
+        main(isStart ? 0.95 : off % 2 === 0 ? 0.6 : 0.3, isStart ? 0.9 : off % 2 === 0 ? 0.45 : 0.25);
+      } else if (!cycleStart) {
+        if (off === L - 1 && L >= 3) main(0.6, 0.5);
+        else if (off === 1 && L === 2) main(0.3, 0.5);
+      }
+    }
+  }
+
+  const out = [];
+  for (let li = 0; li < lanes.length; li++) {
+    const curve = ROLES[lanes[li].role].prioCurve;
+    for (const [list, cv] of [
+      [cand[li].main, curve],
+      [cand[li].ghost, 1],
+    ]) {
+      const ranked = list.map((x, idx) => ({ x, idx })).sort((a, b) => b.x.imp - a.x.imp || a.idx - b.idx);
+      ranked.forEach((e, rank) => {
+        e.x.note.prio = Math.min(0.999, Math.max(0.001, Math.pow((rank + 0.5) / ranked.length, cv)));
+        out.push(e.x.note);
+      });
+    }
+  }
+  return out;
+}
+
+function varyBar(notes, amount, rng) {
+  const out = [];
+  for (const n of notes) {
+    if (n.kind === 'main' && n.prio > 0.3 && rng.chance(0.22 * amount)) continue;
+    if (n.kind === 'ghost' && rng.chance(0.3 * amount)) continue;
+    const c = Object.assign({}, n);
+    if (c.kind === 'main' && rng.chance(0.12 * amount)) c.accent = c.accent > 0 ? 0 : rng.range(0.5, 1);
+    out.push(c);
+  }
+  return out;
+}
+
+// Phrase-end fill: a roll at half-unit spacing through the bar's last group.
+function addFill(notes, info, rng, fig, phase, st) {
+  if (!info.isLast) return notes;
+  if (!rng.chance(0.2 + (info.shape === 'build' ? 0.35 : 0))) return notes;
+  const lanes = st.lanes;
+  let li = lanes.findIndex((l) => l.role === 'backbeat');
+  if (li < 0) li = lanes.findIndex((l) => l.role === 'color');
+  if (li < 0) return notes;
+  const meter = st.meter;
+  const unit = unitOf(meter);
+  const U = unitsPerBar(meter);
+  const spanEnd = meter.barLen * (1 - info.restInBar);
+  const starts = [];
+  let cycle = 0;
+  for (const g of fig.groups) {
+    starts.push(cycle);
+    cycle += g;
+  }
+  let from = -1;
+  for (let i = 0; i < U; i++) {
+    if (i * unit >= spanEnd - 2 * unit) break;
+    if (starts.indexOf((phase + i) % cycle) >= 0) from = i * unit;
+  }
+  if (from < 0) return notes;
+  const step = unit / 2;
+  const count = Math.round((spanEnd - from) / step);
+  const prio = 0.2 + 0.4 * rng.float();
+  const kept = notes.filter((n) => n.lane !== li || n.pos < from || n.pos >= spanEnd);
+  for (let i = 0; i < count; i++) {
+    const u = i / count;
+    kept.push({ id: rng.int(0x7fffffff), lane: li, pos: from + i * step, att: from + i * step, fam: 'main', kind: 'fill', prio, accent: i === count - 1 ? 0.6 : 0, flam: false, fillProg: u });
+  }
+  return kept;
+}
+
+function store(g, groups) {
+  const fig = { groups, id: g.nextId++ };
+  g.bank.push(fig);
+  if (g.bank.length > BANK_SIZE) g.bank.shift();
+  g.current = fig;
+  return fig;
+}
+
+function makePlan(k, st) {
+  const g = st.gen;
+  const rng = new Rng(hash32(st.seed, SALT_PLAN, k));
+  const info = st.mods.breath.info(k);
+  const m = st.p.memory;
+  const loose = 1 - m;
+  const U = unitsPerBar(st.meter);
+
+  if (!g.current) {
+    store(g, newGrouping(rng, U, st.p.looseness));
+    g.phase = 0;
+  } else {
+    const pChange = info.isFirst ? 0.85 * Math.pow(loose, 1.2) : 0.6 * Math.pow(loose, 2.5);
+    if (rng.chance(pChange)) {
+      const others = g.bank.filter((b) => b !== g.current);
+      const r = rng.float();
+      if (others.length && r < 0.3) g.current = others[rng.int(others.length)];
+      else if (r < 0.3 + 0.7 * (0.4 + 0.6 * m)) store(g, varyGrouping(g.current.groups, rng));
+      else store(g, newGrouping(rng, U, st.p.looseness));
+      g.phase = 0;
+    }
+  }
+  if (info.isFirst) g.phase = 0;
+  const fig = g.current;
+  const phase = g.phase;
+  let cycle = 0;
+  for (const x of fig.groups) cycle += x;
+
+  let notes = figureNotes(fig, phase, st);
+  if (info.isLast) notes = varyBar(notes, 0.12 + 0.35 * loose, rng);
+  else if (!rng.chance(0.45 + 0.5 * m)) notes = varyBar(notes, 0.03 + 0.3 * loose, rng);
+  notes = addFill(notes, info, rng, fig, phase, st);
+  g.phase = (phase + U) % cycle;
+  return { k, notes: finishPlan(notes), info, groups: fig.groups.slice(), phase };
+}
+
+const irregular = {
+  id: 'irregular',
+  maxDeviation: MAX_DEV + 0.09,
+
+  init(state) {
+    state.gen = { plans: new Map(), nextBar: 0, bank: [], current: null, phase: 0, nextId: 1 };
+  },
+
+  reseed(state) {
+    state.gen.bank = [];
+    state.gen.current = null;
+  },
+
+  generate(start, end, state) {
+    return generateFromPlans(start, end, state, makePlan);
+  },
+
+  debugPlan(k, state) {
+    return getPlan(k, state, makePlan);
+  },
+  laneDensity,
+  newGrouping,
+  varyGrouping,
+};
+
+module.exports = irregular;
+  }, {"../../prng":"engine/prng.js","../../lanes":"engine/lanes.js","../shared":"engine/generators/shared.js"}];
+  // ---- engine/generators/organic/index.js
+  defs["engine/generators/organic/index.js"] = [function (module, exports, require) {
+'use strict';
+
+const { hash32, Rng } = require('../../prng');
+const { MotifMemory } = require('./motifs');
+const { MAX_DEV, finishPlan, getPlan, generateFromPlans, laneDensity } = require('../shared');
+
+// The "organic" generator: a player with a memory, a sense of phrase and an
+// imperfect, drifting clock.
+//
+// Two stages:
+//   plan    once per bar, in order: memory picks or invents a figure, phrase
+//           ends may get a fill. Plans are stateful (memory evolves).
+//   render  per note, stateless: density gating, swing, drift, jitter,
+//           velocity and flams, all from modulators and hashed randomness
+//           keyed by (seed, bar, note). Rendering a note never depends on
+//           which window asked for it.
+//
+// generate(start, end, state) returns the events whose anchor (bar start +
+// planned position) lies in [start, end). Each event's `beat` is its anchor
+// plus swing and timing deviations, bounded by MAX_DEV.
+
+const SALT_PLAN = 0x91a7;
+
+// Fills: at a phrase end, a short roll on the snare (or perc) lane at a
+// steady rate (16ths, 16th triplets or 8th triplets), bent slightly ahead or
+// behind as a whole, with the odd stroke left out.
+const FILL_RATES = [
+  { div: 4, fam: 'main', weight: 3 },
+  { div: 6, fam: 'cross', weight: 1.5 },
+  { div: 3, fam: 'cross', weight: 1 },
+];
+
+function addFill(notes, info, rng, ctx) {
+  if (!info.isLast) return notes;
+  const pFill = 0.15 + (info.shape === 'build' ? 0.35 : 0);
+  if (!rng.chance(pFill)) return notes;
+  const { meter, lanes } = ctx;
+  const byRole = (r) => lanes.findIndex((l) => l.role === r);
+  let li = rng.chance(0.7) ? byRole('backbeat') : byRole('color');
+  if (li < 0) li = byRole('backbeat') >= 0 ? byRole('backbeat') : byRole('color');
+  if (li < 0) return notes;
+  const spanEnd = meter.barLen * (1 - info.restInBar);
+  const spanLen = Math.min(spanEnd, meter.pulse * (rng.chance(0.5) ? 1 : 2));
+  if (spanLen < meter.pulse * 0.99) return notes;
+  const spanStart = spanEnd - spanLen;
+  const rate = FILL_RATES[rng.weighted(FILL_RATES.map((r) => r.weight))];
+  const count = Math.round((spanLen / meter.pulse) * rate.div);
+  const gamma = rng.range(0.93, 1.07);
+  const kept = notes.filter((n) => n.lane !== li || n.pos < spanStart || n.pos >= spanEnd);
+  const prio = 0.2 + 0.4 * rng.float();
+  for (let i = 0; i < count; i++) {
+    const u = i / count;
+    if (i < count - 1 && i > 0 && rng.chance(0.15)) continue;
+    kept.push({
+      id: rng.int(0x7fffffff),
+      lane: li,
+      pos: spanStart + spanLen * Math.pow(u, gamma),
+      att: spanStart + spanLen * u,
+      fam: rate.fam,
+      kind: 'fill',
+      prio,
+      accent: i === count - 1 ? 0.6 : 0,
+      flam: false,
+      fillProg: u,
+    });
+  }
+  return kept;
+}
+
+function makePlan(k, st) {
+  const rng = new Rng(hash32(st.seed, SALT_PLAN, k));
+  const info = st.mods.breath.info(k);
+  const ctx = { meter: st.meter, lanes: st.lanes, p: st.p };
+  let notes = st.gen.memory.next(k, info, rng, ctx);
+  notes = addFill(notes, info, rng, ctx);
+  return { k, notes: finishPlan(notes), info };
+}
+
+const organic = {
+  id: 'organic',
+  maxDeviation: MAX_DEV + 0.09,
+
+  init(state) {
+    state.gen = { memory: new MotifMemory(), plans: new Map(), nextBar: 0 };
+  },
+
+  // Seed changed mid-performance: forget figures, keep the bar count.
+  reseed(state) {
+    state.gen.memory = new MotifMemory();
+  },
+
+  generate(start, end, state) {
+    return generateFromPlans(start, end, state, makePlan);
+  },
+
+  // For tests and the piano-roll view.
+  debugPlan(k, state) {
+    return getPlan(k, state, makePlan);
+  },
+  laneDensity,
+};
+
+module.exports = organic;
+  }, {"../../prng":"engine/prng.js","./motifs":"engine/generators/organic/motifs.js","../shared":"engine/generators/shared.js"}];
+  // ---- engine/generators/organic/motifs.js
+  defs["engine/generators/organic/motifs.js"] = [function (module, exports, require) {
+'use strict';
+
+const { ROLES } = require('../../lanes');
+
+// Figures ("motifs") and the memory that brings them back.
+//
+// A motif is one bar of candidate notes for all lanes. Every candidate has a
+// priority: at render time a lane plays the candidates whose priority is
+// below its current density, so the same figure thins out or fills in as the
+// density breathes, keeping its identity.
+//
+// Note fields:
+//   lane  lane index
+//   pos   position in the bar (beats, float). Already includes the player's
+//         intentional displacement, which returns with the motif.
+//   att   the attractor the note was aimed at
+//   fam   'main' | 'cross' | 'odd' | 'free' (only 'main' gets swing)
+//   kind  'main' | 'ghost' | 'fill'
+//   prio  0..1, lower plays first
+//   accent 0, or 0.5..1
+//   flam  true if this accent may be flammed
+//   id    stable identity, kept through variations
+
+const BANK_SIZE = 4;
+
+function clampPos(pos, barLen) {
+  return Math.min(barLen - 1e-6, Math.max(0, pos));
+}
+
+// Weighted sampling without replacement (Efraimidis-Spirakis), skipping items
+// closer than `spacing` to an already taken position. Consumes exactly one
+// random number per item, so the stream doesn't depend on what gets picked.
+function sample(rng, items, weightOf, count, spacing, taken) {
+  const keyed = [];
+  for (let i = 0; i < items.length; i++) {
+    const u = rng.float();
+    const w = weightOf(items[i]);
+    if (w > 0) keyed.push({ item: items[i], key: Math.log(1 - u) / w, i });
+  }
+  keyed.sort((a, b) => b.key - a.key || a.i - b.i);
+  const picked = [];
+  const occupied = taken ? taken.slice() : [];
+  for (let j = 0; j < keyed.length && picked.length < count; j++) {
+    const pos = keyed[j].item.pos;
+    let free = true;
+    for (let o = 0; o < occupied.length; o++) {
+      if (Math.abs(occupied[o] - pos) < spacing) {
+        free = false;
+        break;
+      }
+    }
+    if (!free) continue;
+    picked.push(keyed[j].item);
+    occupied.push(pos);
+  }
+  return picked;
+}
+
+function laneScale(meter) {
+  return meter.barLen / 4;
+}
+
+// Priority from rank. `curve` > 1 pulls the first ranks towards 0, so a
+// role's core notes (backbeats, downbeat kick) survive deep thinning.
+function prioFor(rank, n, rng, curve) {
+  const p = Math.pow((rank + 0.5 + rng.range(-0.15, 0.15)) / n, curve || 1);
+  return Math.min(0.999, Math.max(0.001, p));
+}
+
+// Rank picked attractors by how idiomatic they are for the role (with a
+// little randomness), so thinning drops the least important notes first.
+function byImportance(items, scoreOf, rng) {
+  return items
+    .map((it, i) => ({ it, k: scoreOf(it) * rng.range(0.85, 1.15), i }))
+    .sort((a, b) => b.k - a.k || a.i - b.i)
+    .map((x) => x.it);
+}
+
+function makeMain(li, att, rank, n, rng, ctx) {
+  const role = ROLES[ctx.lanes[li].role];
+  const disp = rng.gauss() * ctx.p.looseness * 0.02 * (att.family === 'main' ? 1 : 0.6);
+  const accent = rng.chance(role.accentP * role.accentWeight(att, ctx.meter)) ? rng.range(0.5, 1) : 0;
+  const flam = accent > 0 && role.flam > 0 && rng.chance(role.flam);
+  return {
+    id: rng.int(0x7fffffff),
+    lane: li,
+    pos: clampPos(att.pos + disp, ctx.meter.barLen),
+    att: att.pos,
+    fam: att.family,
+    kind: 'main',
+    prio: prioFor(rank, n, rng, ROLES[ctx.lanes[li].role].prioCurve),
+    accent,
+    flam,
+  };
+}
+
+function freshLane(li, rng, ctx) {
+  const { meter, p } = ctx;
+  const role = ROLES[ctx.lanes[li].role];
+  const n = Math.max(1, Math.round(role.maxNotes * laneScale(meter)));
+  const weight = (a) => Math.pow(role.pref(a, meter, p.looseness), role.sharp);
+  const atts = sample(rng, meter.attractors, weight, n, role.minSpacing);
+  const ranked = byImportance(atts, (a) => role.pref(a, meter, p.looseness), rng);
+  const mains = ranked.map((a, r) => makeMain(li, a, r, n, rng, ctx));
+
+  const out = mains.slice();
+  const nGhost = Math.round(role.ghostMax * laneScale(meter));
+  if (nGhost > 0) {
+    const slots = role.ghostSlots(meter, mains).filter((s) => s.pos >= 0 && s.pos < meter.barLen);
+    const picked = sample(rng, slots, (s) => Math.pow(s.weight, 1.5), nGhost, 0.11, mains.map((m) => m.pos));
+    byImportance(picked, (s) => s.weight, rng).forEach((s, r) => {
+      out.push({ id: rng.int(0x7fffffff), lane: li, pos: s.pos, att: s.pos, fam: 'main', kind: 'ghost', prio: prioFor(r, nGhost, rng), accent: 0, flam: false });
+    });
+  }
+  return out;
+}
+
+function freshMotif(rng, ctx) {
+  let notes = [];
+  for (let li = 0; li < ctx.lanes.length; li++) notes = notes.concat(freshLane(li, rng, ctx));
+  return dedupe(notes, ctx);
+}
+
+// Keep each lane playable: mains at least ~minSpacing apart (lower priority
+// loses), ghosts clear of every other note in their lane.
+function dedupe(notes, ctx) {
+  const out = [];
+  for (let li = 0; li < ctx.lanes.length; li++) {
+    const role = ROLES[ctx.lanes[li].role];
+    const lane = notes.filter((n) => n.lane === li);
+    const kept = [];
+    const ordered = lane
+      .filter((n) => n.kind !== 'ghost')
+      .sort((a, b) => a.prio - b.prio || a.pos - b.pos)
+      .concat(lane.filter((n) => n.kind === 'ghost').sort((a, b) => a.prio - b.prio || a.pos - b.pos));
+    for (const n of ordered) {
+      const gap = n.kind === 'ghost' ? 0.1 : role.minSpacing * 0.8;
+      if (kept.every((k) => Math.abs(k.pos - n.pos) >= gap)) kept.push(n);
+    }
+    for (const k of kept) out.push(k);
+  }
+  return out;
+}
+
+// A recognisable variant of a figure. `amount` 0..1: small amounts nudge
+// timing and dynamics; larger ones drop, move and add notes.
+function varyMotif(notes, amount, rng, ctx) {
+  const { meter, p } = ctx;
+  const out = [];
+  for (const n of notes) {
+    if (n.kind === 'fill') continue;
+    if (n.kind === 'main' && n.prio > 0.3 && rng.chance(0.22 * amount)) continue;
+    if (n.kind === 'ghost' && rng.chance(0.3 * amount)) continue;
+    const role = ROLES[ctx.lanes[n.lane].role];
+    const c = Object.assign({}, n);
+    c.pos = clampPos(c.pos + rng.gauss() * amount * 0.03 * p.looseness, meter.barLen);
+    if (c.kind === 'main' && rng.chance(0.12 * amount)) {
+      c.accent = c.accent > 0 ? 0 : rng.range(0.5, 1);
+      c.flam = c.accent > 0 && role.flam > 0 && rng.chance(role.flam);
+    }
+    if (c.kind === 'main' && rng.chance(0.1 * amount)) {
+      const near = meter.attractors.filter((a) => Math.abs(a.pos - c.att) > 1e-6 && Math.abs(a.pos - c.att) <= 0.5);
+      if (near.length) {
+        const w = near.map((a) => Math.pow(role.pref(a, meter, p.looseness), role.sharp));
+        const a = near[rng.weighted(w)];
+        c.pos = clampPos(a.pos + (c.pos - c.att), meter.barLen);
+        c.att = a.pos;
+        c.fam = a.family;
+      }
+    }
+    if (rng.chance(0.15 * amount)) c.prio = Math.min(0.999, Math.max(0.001, c.prio + rng.gauss() * 0.12));
+    out.push(c);
+  }
+  const adds = Math.floor(amount * 1.5 + rng.float() * 0.8);
+  for (let i = 0; i < adds; i++) {
+    const li = rng.weighted(ctx.lanes.map((l) => ROLES[l.role].maxNotes));
+    const role = ROLES[ctx.lanes[li].role];
+    const taken = out.filter((n) => n.lane === li).map((n) => n.pos);
+    const weight = (a) => Math.pow(role.pref(a, meter, p.looseness), role.sharp);
+    const pick = sample(rng, meter.attractors, weight, 1, role.minSpacing, taken)[0];
+    if (!pick) continue;
+    const note = makeMain(li, pick, 0, 1, rng, ctx);
+    note.prio = rng.range(0.35, 0.95);
+    out.push(note);
+  }
+  return dedupe(out, ctx);
+}
+
+function copyNotes(notes) {
+  return notes.map((n) => Object.assign({}, n));
+}
+
+// The player's memory: a small bank of figures with strengths. A figure holds
+// for a whole phrase. Most bars replay it exactly (timing and velocity are
+// still humanised at render time), some get a light variation, and the last
+// bar of a phrase carries the bigger variation. Switching figure (back to an
+// older one, a development of the current one, or a new idea) is decided at
+// phrase starts; with low Memory it can also happen mid-phrase, and
+// variations may overwrite the stored figure so it drifts.
+class MotifMemory {
+  constructor() {
+    this.bank = [];
+    this.current = null;
+  }
+
+  next(bar, info, rng, ctx) {
+    const m = ctx.p.memory;
+    const loose = 1 - m;
+    for (const mo of this.bank) mo.strength *= 0.97;
+    if (!this.bank.length) return copyNotes(this._store(freshMotif(rng, ctx), bar).notes);
+
+    const pChange = info.isFirst ? 0.85 * Math.pow(loose, 1.2) : 0.6 * Math.pow(loose, 2.5);
+    if (rng.chance(pChange)) {
+      const others = this.bank.filter((b) => b !== this.current);
+      const r = rng.float();
+      if (others.length && r < 0.3) {
+        this.current = others[rng.weighted(others.map((b) => b.strength))];
+      } else if (r < 0.3 + 0.7 * (0.4 + 0.6 * m)) {
+        this._store(varyMotif(this.current.notes, 0.35 + 0.4 * loose, rng, ctx), bar);
+      } else {
+        this._store(freshMotif(rng, ctx), bar);
+      }
+    }
+
+    const motif = this.current;
+    motif.strength += 1;
+    motif.uses += 1;
+    let amount;
+    if (info.isLast) amount = 0.12 + 0.35 * loose;
+    else if (rng.chance(0.45 + 0.5 * m)) amount = 0;
+    else amount = 0.03 + 0.3 * loose;
+    if (amount === 0) return copyNotes(motif.notes);
+    const varied = varyMotif(motif.notes, amount, rng, ctx);
+    if (!info.isLast && rng.chance(0.4 * loose * loose)) motif.notes = copyNotes(varied);
+    return varied;
+  }
+
+  _store(notes, bar) {
+    const motif = { notes: copyNotes(notes), strength: 1, born: bar, uses: 1 };
+    this.bank.push(motif);
+    if (this.bank.length > BANK_SIZE) {
+      let weakest = -1;
+      for (let i = 0; i < this.bank.length; i++) {
+        if (this.bank[i] === motif || this.bank[i] === this.current) continue;
+        if (weakest < 0 || this.bank[i].strength < this.bank[weakest].strength) weakest = i;
+      }
+      this.bank.splice(weakest, 1);
+    }
+    this.current = motif;
+    return motif;
+  }
+}
+
+module.exports = { MotifMemory, freshMotif, varyMotif, dedupe, sample, clampPos };
+  }, {"../../lanes":"engine/lanes.js"}];
+  // ---- engine/generators/shared.js
+  defs["engine/generators/shared.js"] = [function (module, exports, require) {
+'use strict';
+
+const { hash32, Rng } = require('../prng');
+const { ROLES } = require('../lanes');
+const { metricWeight, swingWarp } = require('../meter');
+
+// Shared by generator modes: the bar-plan cache and per-note rendering
+// (density gating, swing, drift, jitter, velocity, flams). A mode only
+// decides which candidate notes a bar has; rendering is the same for all,
+// so every mode gets the same feel controls.
+//
+// A candidate note may carry `w` (0..1), its emphasis; without it the soft
+// metric weight of its position is used.
+
+const SALT_RENDER = 0x4e7d;
+const SALT_FLAM = 0xf1a3;
+const MAX_DEV = 0.4;
+const MAX_DUR = 0.5;
+
+const SWING_NOISE = { octaves: 3, persistence: 0.5 };
+const BIAS_NOISE = { octaves: 2, persistence: 0.5 };
+const VEL_NOISE = { octaves: 3, persistence: 0.6 };
+
+function clamp(x, a, b) {
+  return x < a ? a : x > b ? b : x;
+}
+
+const KIND_ORDER = { main: 0, fill: 1, ghost: 2 };
+
+// Stable order for a bar's candidates; uid = index, used to key rendering.
+function finishPlan(notes) {
+  notes.sort((a, b) => a.pos - b.pos || a.lane - b.lane || KIND_ORDER[a.kind] - KIND_ORDER[b.kind]);
+  notes.forEach((n, i) => {
+    n.uid = i;
+  });
+  return notes;
+}
+
+// Plans are made once per bar, in bar order (modes keep state across bars).
+function getPlan(k, st, makePlan) {
+  const g = st.gen;
+  while (g.nextBar <= k) {
+    g.plans.set(g.nextBar, makePlan(g.nextBar, st));
+    g.nextBar++;
+  }
+  for (const key of g.plans.keys()) if (key < k - 3) g.plans.delete(key);
+  return g.plans.get(k);
+}
+
+// Events anchored in [start, end) from the bar plans.
+function generateFromPlans(start, end, state, makePlan) {
+  const out = [];
+  const L = state.meter.barLen;
+  const k0 = Math.max(0, Math.floor((start - state.origin) / L));
+  const k1 = Math.floor((end - state.origin) / L);
+  for (let k = k0; k <= k1; k++) {
+    const plan = getPlan(k, state, makePlan);
+    const barStart = state.origin + k * L;
+    for (const c of plan.notes) {
+      const a = barStart + c.pos;
+      if (a >= start && a < end) render(c, k, barStart, state, out);
+    }
+  }
+  return out;
+}
+
+// Effective density of a lane at performance time t (beats).
+function laneDensity(st, role, lane, t) {
+  const barPos = t / st.meter.barLen;
+  const level = st.mods.breath.densityAt(barPos);
+  const f = Math.max(0, 1 + (level - 1) * st.p.breath * role.breathSens);
+  return { dl: clamp(st.p.density * f * lane.density, 0, 1), env: st.mods.breath.value(barPos) };
+}
+
+function render(c, k, barStart, st, out) {
+  const p = st.p;
+  const meter = st.meter;
+  const lane = st.lanes[c.lane];
+  const role = ROLES[lane.role];
+  const mods = st.mods;
+  const li = c.lane;
+  const anchor = barStart + c.pos;
+  const t = anchor - st.origin;
+  const { dl, env } = laneDensity(st, role, lane, t);
+
+  if (c.kind === 'main' && c.prio > dl) return;
+  if (c.kind === 'ghost' && c.prio > p.ghosts * Math.min(1, dl * 2)) return;
+  if (c.kind === 'fill' && c.prio > dl * 1.3) return;
+
+  const r = new Rng(hash32(st.seed, SALT_RENDER, k, c.uid));
+
+  // Timing. Swing wanders around the Swing setting; drift = ensemble drift
+  // shared by all lanes + per-lane drift + the role's push/pull, which itself
+  // wanders slowly. Jitter is the only uncorrelated part.
+  let x = c.pos;
+  if (c.fam === 'main') {
+    const sw = p.swing * (1 + 0.45 * mods.noise('swing', 0, SWING_NOISE)(t / 8));
+    x = swingWarp(meter, x, sw);
+  }
+  const drift =
+    p.drift *
+    (0.055 * mods.noise('ensemble', 0)(t / 6) +
+      0.015 * mods.noise('drift', li)(t / 4) +
+      role.bias +
+      0.012 * mods.noise('bias', li, BIAS_NOISE)(t / 24));
+  const jitter = p.looseness * 0.014 * r.gauss();
+  const beat = anchor + clamp(x - c.pos + drift + jitter, -MAX_DEV, MAX_DEV);
+
+  // Velocity: soft metric emphasis scaled by Accent, accents on top, ghosts
+  // and fills on their own curves, then phrase dynamics and a slow wander.
+  const A = p.accent;
+  let v;
+  if (c.kind === 'ghost') {
+    v = role.ghostVel * (0.85 + 0.3 * r.float()) * (1 - 0.25 * A);
+  } else if (c.kind === 'fill') {
+    v = role.velocity * (0.45 + 0.5 * c.fillProg) * (1 + 0.2 * A * c.fillProg);
+  } else {
+    const w = c.w !== undefined ? c.w : metricWeight(meter, c.pos);
+    v = role.velocity * (1 + A * 0.55 * (w - 0.45));
+  }
+  if (c.accent > 0) v += A * 26 * c.accent;
+  v *= 1 + p.breath * 0.15 * (Math.min(env, 1.3) - 0.9);
+  v += 7 * mods.noise('vel', li, VEL_NOISE)(t / 2) + 3 * (0.5 + p.looseness) * r.gauss();
+  const velocity = clamp(Math.round(v), 1, 127);
+  const duration = Math.min(MAX_DUR, role.duration * (c.kind === 'ghost' ? 0.6 : 1));
+  out.push({ beat, lane: li, note: lane.note, velocity, duration });
+
+  // Flam: a soft grace note 14-36 ms before the stroke. Whether a note flams
+  // is a property of the note (and the Ghosts setting), not of the bar.
+  if (c.flam && c.kind === 'main' && hash32(st.seed, SALT_FLAM, c.id) / 4294967296 < p.ghosts * 0.55) {
+    const gap = Math.min(0.09, ((14 + 22 * r.float()) * st.bpm) / 60000);
+    const gv = clamp(Math.round(velocity * (0.38 + 0.2 * r.float())), 1, 127);
+    out.push({ beat: beat - gap, lane: li, note: lane.note, velocity: gv, duration: gap * 0.7 });
+  }
+}
+
+
+module.exports = { MAX_DEV, MAX_DUR, clamp, finishPlan, getPlan, generateFromPlans, laneDensity, render };
+  }, {"../prng":"engine/prng.js","../lanes":"engine/lanes.js","../meter":"engine/meter.js"}];
+  // ---- engine/index.js
+  defs["engine/index.js"] = [function (module, exports, require) {
+'use strict';
+
+// Public engine API. Pure JavaScript, no host dependencies: loads in Node
+// (require) and in Max's [v8] (bundled by tools/build.js).
+//
+//   const engine = createEngine({ seed: 7, params: { density: 60 } });
+//   engine.reset(0);
+//   const events = engine.generate(0, 4); // [{ beat, lane, note, velocity, duration }]
+
+const { PARAMS, PARAM_IDS, sanitize, defaults, normalize, paramSpec } = require('./params');
+const { makeMeter } = require('./meter');
+const { DEFAULT_LANES, ROLES, normalizeLanes } = require('./lanes');
+const { createModulators } = require('./modulators');
+const { GENERATORS, MODES, getGenerator } = require('./generators');
+const { Timeline, MAX_DURATION, MIN_GAP } = require('./timeline');
+const { LookaheadScheduler } = require('./scheduler');
+const prng = require('./prng');
+const noise = require('./modulators/noise');
+
+const VERSION = '0.3.0';
+
+function createEngine(options) {
+  const opts = options || {};
+  const values = defaults();
+  if (opts.mode !== undefined) {
+    const m = typeof opts.mode === 'string' ? MODES.indexOf(opts.mode) : opts.mode;
+    if (m < 0 || !(m < MODES.length)) throw new Error('unknown generator mode: ' + opts.mode);
+    values.mode = m;
+  }
+  if (opts.seed !== undefined) values.seed = sanitize('seed', opts.seed);
+  if (opts.params) {
+    for (const id of Object.keys(opts.params)) {
+      const v = sanitize(id, opts.params[id]);
+      if (v !== undefined) values[id] = v;
+    }
+  }
+  if (opts.params && opts.params.mode !== undefined) {
+    const m = sanitize('mode', opts.params.mode);
+    if (m !== undefined) values.mode = m;
+  }
+  let generator = getGenerator(MODES[values.mode]);
+  const meterIn = opts.meter || {};
+  const state = {
+    mode: generator.id,
+    values,
+    p: normalize(values),
+    seed: values.seed,
+    lanes: normalizeLanes(opts.lanes),
+    meter: makeMeter(meterIn.num || 4, meterIn.den || 4),
+    bpm: opts.bpm > 0 ? opts.bpm : 120,
+    origin: 0,
+    mods: createModulators(values.seed),
+    gen: null,
+  };
+  let pendingMeter = null;
+  const timeline = new Timeline(generator, state);
+
+  function applyValue(id, v) {
+    values[id] = v;
+    state.p = normalize(values);
+    if (id === 'seed' && v !== state.seed) {
+      state.seed = v;
+      state.mods = createModulators(v);
+      if (generator.reseed) generator.reseed(state);
+    }
+    if (id === 'mode' && MODES[v] !== generator.id) {
+      generator = getGenerator(MODES[v]);
+      state.mode = generator.id;
+      timeline.setGenerator(generator);
+    }
+  }
+
+  return {
+    VERSION,
+    get mode() {
+      return generator.id;
+    },
+    get generator() {
+      return generator;
+    },
+    get lanes() {
+      return state.lanes;
+    },
+    get meter() {
+      return state.meter;
+    },
+    // Exposed for tests and the CLI views; hosts shouldn't need it.
+    get state() {
+      return state;
+    },
+
+    reset(startBeat) {
+      if (pendingMeter) {
+        state.meter = pendingMeter;
+        pendingMeter = null;
+      }
+      timeline.reset(Number.isFinite(startBeat) ? startBeat : 0);
+    },
+
+    generate(startBeat, endBeat) {
+      return timeline.generate(startBeat, endBeat);
+    },
+
+    // Returns true if the value was accepted (after clamping).
+    setParam(id, value) {
+      const v = sanitize(id, value);
+      if (v === undefined) return false;
+      applyValue(id, v);
+      return true;
+    },
+
+    setParams(obj) {
+      let ok = true;
+      for (const id of Object.keys(obj || {})) ok = this.setParam(id, obj[id]) && ok;
+      return ok;
+    },
+
+    getParams() {
+      return Object.assign({}, values);
+    },
+
+    // Used for tempo-dependent musical constants (flam spacing). Timing in
+    // events is always in beats.
+    setTempo(bpm) {
+      if (bpm > 0 && Number.isFinite(bpm)) state.bpm = bpm;
+    },
+
+    // Takes effect at the next reset(); a meter change mid-performance would
+    // move every bar line.
+    setMeter(num, den) {
+      const m = makeMeter(num, den);
+      if (m.key !== state.meter.key) pendingMeter = m;
+      else pendingMeter = null;
+    },
+  };
+}
+
+module.exports = {
+  VERSION,
+  createEngine,
+  PARAMS,
+  PARAM_IDS,
+  paramSpec,
+  DEFAULT_LANES,
+  ROLES,
+  GENERATORS,
+  MODES,
+  MAX_DURATION,
+  MIN_GAP,
+  LookaheadScheduler,
+  makeMeter,
+  createModulators,
+  prng,
+  noise,
+};
+  }, {"./params":"engine/params.js","./meter":"engine/meter.js","./lanes":"engine/lanes.js","./modulators":"engine/modulators/index.js","./generators":"engine/generators/index.js","./timeline":"engine/timeline.js","./scheduler":"engine/scheduler.js","./prng":"engine/prng.js","./modulators/noise":"engine/modulators/noise.js"}];
+  // ---- engine/lanes.js
+  defs["engine/lanes.js"] = [function (module, exports, require) {
+'use strict';
+
+const { isOn, metricWeight } = require('./meter');
+
+// A lane is one output voice (one drum-rack pad for now). Its role decides
+// where it likes to play, how it is articulated and how it feels in time.
+// Role profiles are shared by all generator modes; a mode decides what to do
+// with them.
+
+function nearestOddPulseDist(meter, pos) {
+  let best = Infinity;
+  const n = Math.round(meter.pulsesPerBar);
+  for (let i = 1; i < n; i += 2) best = Math.min(best, Math.abs(pos - i * meter.pulse));
+  return best;
+}
+
+function familyFactor(att, looseness, cross, odd) {
+  if (att.family === 'cross') return cross * (0.05 + 1.1 * looseness * looseness);
+  if (att.family === 'odd') return odd * 1.2 * looseness * looseness * looseness;
+  return 1;
+}
+
+const ROLES = {
+  // Kick-like: sparse, strongly metric, anticipates strong beats.
+  anchor: {
+    maxNotes: 6, minSpacing: 0.24, sharp: 2.5, prioCurve: 1.4,
+    velocity: 104, ghostVel: 50, ghostMax: 2,
+    accentP: 0.3, flam: 0,
+    bias: -0.02, duration: 0.25, breathSens: 0.9,
+    pref(att, meter, looseness) {
+      if (att.family !== 'main') return 0.05 * familyFactor(att, looseness, 1, 1);
+      let s = Math.pow(att.weight, 2.2);
+      const strong = meter.strong;
+      if (isOn(att.pos + meter.pulse / 2, strong) && !isOn(att.pos, meter.pulse)) s += 0.28;
+      else if (isOn(att.pos + meter.pulse / 4, strong) && !isOn(att.pos, meter.pulse / 2)) s += 0.2;
+      return s;
+    },
+    ghostSlots(meter, mains) {
+      // soft pickup a sixteenth before a strong kick
+      return mains.filter((m) => m.prio < 0.5).map((m) => ({ pos: m.pos - meter.pulse / 4, weight: 1 }));
+    },
+    accentWeight(att) {
+      return att.weight >= 0.8 ? 1.2 : 0.5;
+    },
+  },
+
+  // Snare-like: backbeats, ghost notes around them, flams on accents.
+  backbeat: {
+    maxNotes: 4, minSpacing: 0.2, sharp: 3, prioCurve: 1.8,
+    velocity: 98, ghostVel: 30, ghostMax: 7,
+    accentP: 0.4, flam: 0.4,
+    bias: 0.025, duration: 0.2, breathSens: 1.0,
+    pref(att, meter, looseness) {
+      if (att.family !== 'main') return 0.06 * familyFactor(att, looseness, 1, 1);
+      if (isOn(att.pos, meter.pulse)) {
+        const idx = Math.round(att.pos / meter.pulse);
+        const even = Math.round(meter.pulsesPerBar) % 2 === 0;
+        if (even) return idx % 2 === 1 ? 1 : 0.05;
+        return idx >= 1 ? 0.75 : 0.03;
+      }
+      return 0.05 + 0.08 * (1 - att.weight);
+    },
+    ghostSlots(meter) {
+      return meter.attractors
+        .filter((a) => a.family === 'main' && !isOn(a.pos, meter.pulse))
+        .map((a) => {
+          const d = nearestOddPulseDist(meter, a.pos) / 0.4;
+          return { pos: a.pos, weight: (1 - a.weight) * 0.5 + 0.8 * Math.exp(-d * d) };
+        });
+    },
+    accentWeight(att, meter) {
+      return isOn(att.pos, meter.pulse) ? 1 : 0.3;
+    },
+  },
+
+  // Hat-like: keeps time with subdivisions, swing shows most here.
+  pulse: {
+    maxNotes: 16, minSpacing: 0.2, sharp: 3.5, prioCurve: 1,
+    velocity: 80, ghostVel: 38, ghostMax: 4,
+    accentP: 0.22, flam: 0,
+    bias: 0.008, duration: 0.12, breathSens: 0.7,
+    pref(att, meter, looseness) {
+      if (att.family !== 'main') return 0.12 * familyFactor(att, looseness, 1, 0.25);
+      if (isOn(att.pos, meter.pulse)) return 1;
+      if (isOn(att.pos, meter.compound ? meter.pulse / 3 : meter.pulse / 2)) return 0.85;
+      return 0.5;
+    },
+    ghostSlots(meter, mains) {
+      // quiet 32nd-note pickups into a hat stroke
+      return mains.filter((m) => m.prio < 0.6).map((m) => ({ pos: m.pos - meter.pulse / 8, weight: 1 }));
+    },
+    accentWeight(att, meter) {
+      const off = isOn(att.pos, meter.pulse / 2) && !isOn(att.pos, meter.pulse);
+      return off ? 1 : 0.3;
+    },
+  },
+
+  // Percussion colour: syncopations, triplets, the occasional flam.
+  color: {
+    maxNotes: 4, minSpacing: 0.24, sharp: 2, prioCurve: 1,
+    velocity: 88, ghostVel: 42, ghostMax: 3,
+    accentP: 0.35, flam: 0.25,
+    bias: -0.015, duration: 0.2, breathSens: 1.2,
+    pref(att, meter, looseness) {
+      if (att.family !== 'main') return 0.4 * familyFactor(att, looseness, 1, 0.4);
+      if (att.weight >= 0.8) return 0.02;
+      let s = 0.15 + 0.75 * Math.pow(1 - att.weight, 1.3);
+      if (isOn(att.pos, meter.pulse / 2) && !isOn(att.pos, meter.pulse)) s += 0.2;
+      return s;
+    },
+    ghostSlots(meter) {
+      return meter.attractors
+        .filter((a) => a.family === 'main' && a.weight < 0.4)
+        .map((a) => ({ pos: a.pos, weight: 1 - metricWeight(meter, a.pos) }));
+    },
+    accentWeight(att) {
+      return att.weight < 0.5 ? 1 : 0.4;
+    },
+  },
+};
+
+const DEFAULT_LANES = [
+  { name: 'Kick', note: 36, role: 'anchor', density: 1 },
+  { name: 'Snare', note: 38, role: 'backbeat', density: 1 },
+  { name: 'Hat', note: 42, role: 'pulse', density: 1 },
+  { name: 'Perc', note: 37, role: 'color', density: 1 },
+];
+
+function normalizeLanes(lanes) {
+  const src = Array.isArray(lanes) && lanes.length ? lanes : DEFAULT_LANES;
+  return src.map((l, i) => {
+    const note = Math.round(Number(l.note));
+    const density = Number(l.density);
+    return {
+      name: String(l.name || 'Lane ' + (i + 1)),
+      note: Number.isFinite(note) ? Math.min(127, Math.max(0, note)) : 36 + i,
+      role: ROLES[l.role] ? l.role : 'color',
+      density: Number.isFinite(density) ? Math.min(2, Math.max(0, density)) : 1,
+    };
+  });
+}
+
+module.exports = { ROLES, DEFAULT_LANES, normalizeLanes };
+  }, {"./meter":"engine/meter.js"}];
+  // ---- engine/meter.js
+  defs["engine/meter.js"] = [function (module, exports, require) {
+'use strict';
+
+// Meter, metric weight and rhythmic attractors. All positions are in
+// quarter-note beats, measured from the start of a bar.
+
+const EPS = 1e-9;
+
+function makeMeter(num, den) {
+  num = Math.max(1, Math.round(num) || 4);
+  den = [1, 2, 4, 8, 16].indexOf(den) >= 0 ? den : 4;
+  const beatLen = 4 / den;
+  const barLen = num * beatLen;
+  // 6/8, 9/8, 12/8: the felt pulse is a dotted quarter, subdivided in three.
+  const compound = den >= 8 && num % 3 === 0 && num > 3;
+  const pulse = compound ? 3 * beatLen : beatLen;
+  const pulsesPerBar = barLen / pulse;
+  const meter = { num, den, beatLen, barLen, pulse, pulsesPerBar, compound, levels: [] };
+
+  const evenPulses = Math.abs(pulsesPerBar - Math.round(pulsesPerBar)) < EPS && Math.round(pulsesPerBar) % 2 === 0;
+  const lv = (period, weight, family) => meter.levels.push({ period, weight, family });
+  lv(barLen, 1.0, 'main');
+  const halfBar = evenPulses && pulsesPerBar >= 4;
+  if (halfBar) lv(barLen / 2, 0.82, 'main');
+  // The strongest position inside the bar after the downbeat.
+  meter.strong = halfBar ? barLen / 2 : barLen;
+  lv(pulse, 0.66, 'main');
+  if (compound) {
+    lv(pulse / 3, 0.46, 'main');
+    lv(pulse / 6, 0.3, 'main');
+    lv(pulse / 2, 0.3, 'cross'); // duplets against the compound pulse
+    lv(pulse / 4, 0.18, 'cross');
+  } else {
+    lv(pulse / 2, 0.46, 'main');
+    lv(pulse / 4, 0.3, 'main');
+    lv(pulse / 3, 0.34, 'cross'); // triplets
+    lv(pulse / 6, 0.2, 'cross');
+  }
+  lv(pulse / 5, 0.16, 'odd'); // quintuplets
+  meter.key = num + '/' + den;
+  meter.attractors = buildAttractors(meter);
+  return meter;
+}
+
+function distToMultiple(x, period) {
+  const r = x - Math.round(x / period) * period;
+  return Math.abs(r);
+}
+
+function isOn(x, period) {
+  return distToMultiple(x, period) < 1e-6;
+}
+
+// Soft metric weight in [0.1, 1]: the strongest metric level a position sits
+// on, with a gaussian fall-off for positions slightly off it. A note a few
+// milliseconds late still reads as "on the beat", just a little less.
+const SOFT_SIGMA = 0.04;
+function metricWeight(meter, pos) {
+  let best = 0.1;
+  for (let i = 0; i < meter.levels.length; i++) {
+    const L = meter.levels[i];
+    const d = distToMultiple(pos, L.period) / SOFT_SIGMA;
+    const w = L.weight * Math.exp(-d * d);
+    if (w > best) best = w;
+  }
+  return best;
+}
+
+// Attractors are the positions a player is likely to aim for, drawn from
+// several subdivisions at once (binary, triplet, quintuplet). They are not a
+// grid the output is snapped to: generators place notes near them and then
+// displace continuously.
+function buildAttractors(meter) {
+  const out = [];
+  for (let i = 0; i < meter.levels.length; i++) {
+    const L = meter.levels[i];
+    const n = Math.round(meter.barLen / L.period);
+    for (let j = 0; j < n; j++) {
+      const pos = j * L.period;
+      if (pos > meter.barLen - EPS) break;
+      const existing = out.find((a) => Math.abs(a.pos - pos) < 1e-6);
+      if (existing) continue; // keep the strongest (first-listed) level
+      out.push({ pos, weight: L.weight, family: L.family, level: i });
+    }
+  }
+  out.sort((a, b) => a.pos - b.pos);
+  return out;
+}
+
+// Swing as a continuous time warp, applied to binary ('main') positions in
+// simple meters. Inside each pulse the off-beat eighth is delayed (up to a
+// triplet feel), and inside each eighth the off-beat sixteenth is delayed a
+// little less. Positions in between are stretched linearly, so the warp works
+// on any float position.
+function warpSpan(x, span, m) {
+  const k = Math.floor(x / span + EPS);
+  const f = x / span - k;
+  const g = f < 0.5 ? f * (m / 0.5) : m + (f - 0.5) * ((1 - m) / 0.5);
+  return (k + g) * span;
+}
+
+function swingWarp(meter, pos, amount) {
+  if (meter.compound || !(amount > 0)) return pos;
+  const a = Math.min(1, amount);
+  const m16 = 0.5 + 0.12 * a;
+  const m8 = 0.5 + 0.17 * a;
+  return warpSpan(warpSpan(pos, meter.pulse / 2, m16), meter.pulse, m8);
+}
+
+module.exports = { makeMeter, metricWeight, swingWarp, isOn, distToMultiple };
+  }, {}];
+  // ---- engine/modulators/breath.js
+  defs["engine/modulators/breath.js"] = [function (module, exports, require) {
+'use strict';
+
+const { hash32, Rng } = require('../prng');
+const { makeNoise } = require('./noise');
+
+// Breathing envelope: slow density modulation organised in phrases.
+//
+// The performance is cut into phrases of 2, 4 or 8 bars. Each phrase has a
+// shape (build, arch, steady, fade) and may end in a rest, a short stretch of
+// near-silence before the next phrase comes back in on its downbeat. The
+// value is a density multiplier around 1.0; the generator scales its depth
+// with the Breath parameter, so at Breath 0 nothing breathes.
+//
+// The phrase plan depends only on the seed and is laid out in performance
+// bars (bar 0 = where playback started), so every performance opens with a
+// fresh phrase rather than in the middle of a rest.
+
+const PHRASE_BARS = [2, 4, 8];
+const PHRASE_BAR_WEIGHTS = [1, 3, 2];
+const SHAPES = ['build', 'arch', 'steady', 'fade'];
+const SHAPE_WEIGHTS = [3, 2, 1.5, 1.5];
+const REST_FRACTIONS = [0.25, 0.5, 1]; // of a bar
+const REST_LEVEL = 0.04;
+const REST_FADE = 0.125; // bars of fade into a rest
+
+function shapeValue(shape, u) {
+  switch (shape) {
+    case 'build':
+      return 0.3 + 1.0 * Math.pow(u, 1.5);
+    case 'arch':
+      return 0.4 + 0.85 * Math.sin(Math.PI * u);
+    case 'fade':
+      return 1.25 - 0.85 * u;
+    default:
+      return 0.95 + 0.12 * Math.sin(2 * Math.PI * u);
+  }
+}
+
+class BreathEnvelope {
+  constructor(seed) {
+    this.seed = seed >>> 0;
+    this.phrases = [];
+    this.wobble = makeNoise(hash32(this.seed, 0xb4ea7), { octaves: 3, persistence: 0.5 });
+  }
+
+  _extend(bar) {
+    while (true) {
+      const last = this.phrases[this.phrases.length - 1];
+      const start = last ? last.start + last.bars : 0;
+      if (last && start > bar) return;
+      const rng = new Rng(hash32(this.seed, 0x9e7a5e, this.phrases.length));
+      const bars = PHRASE_BARS[rng.weighted(PHRASE_BAR_WEIGHTS)];
+      const shape = SHAPES[rng.weighted(SHAPE_WEIGHTS)];
+      const level = rng.range(0.85, 1.12);
+      let rest = 0;
+      if (rng.chance(bars > 2 ? 0.6 : 0.3)) rest = REST_FRACTIONS[rng.int(bars > 2 ? REST_FRACTIONS.length : 2)];
+      this.phrases.push({ index: this.phrases.length, start, bars, shape, level, rest });
+    }
+  }
+
+  phraseAt(bar) {
+    const b = Math.max(0, Math.floor(bar));
+    this._extend(b);
+    let lo = 0;
+    let hi = this.phrases.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (this.phrases[mid].start <= b) lo = mid;
+      else hi = mid - 1;
+    }
+    return this.phrases[lo];
+  }
+
+  // Density multiplier at performance position `barPos` (in bars, float).
+  value(barPos) {
+    const x = Math.max(0, barPos);
+    const ph = this.phraseAt(x);
+    const local = x - ph.start;
+    const active = ph.bars - ph.rest;
+    const wob = 0.08 * this.wobble(x * 0.7);
+    if (local >= active) return REST_LEVEL;
+    const v = ph.level * shapeValue(ph.shape, local / active) + wob;
+    // Fade into the rest so the drop-out isn't a hard edge.
+    if (ph.rest > 0 && local > active - REST_FADE) {
+      const f = (active - local) / REST_FADE;
+      const s = 0.5 - 0.5 * Math.cos(Math.PI * f);
+      return REST_LEVEL + (v - REST_LEVEL) * s;
+    }
+    return Math.max(REST_LEVEL, v);
+  }
+
+  // Density for gating notes: constant within a bar (taken at the bar's
+  // middle), so a repeated figure plays the same notes for the whole bar;
+  // rests still start mid-bar. value() stays continuous for dynamics.
+  densityAt(barPos) {
+    const x = Math.max(0, barPos);
+    const ph = this.phraseAt(x);
+    const local = x - ph.start;
+    const active = ph.bars - ph.rest;
+    if (local >= active) return REST_LEVEL;
+    const mid = Math.min(active, Math.floor(local) + 0.5);
+    return Math.max(REST_LEVEL, ph.level * shapeValue(ph.shape, mid / active));
+  }
+
+  // Phrase facts for a whole performance bar, used for bar-level decisions
+  // (new ideas at phrase starts, fills at phrase ends).
+  info(bar) {
+    const ph = this.phraseAt(bar);
+    const barInPhrase = Math.floor(bar) - ph.start;
+    const isLast = barInPhrase === ph.bars - 1;
+    return {
+      index: ph.index,
+      bars: ph.bars,
+      barInPhrase,
+      isFirst: barInPhrase === 0,
+      isLast,
+      shape: ph.shape,
+      // Portion of this bar (in bars, 0..1) at its end that is resting.
+      restInBar: isLast ? Math.min(1, ph.rest) : 0,
+    };
+  }
+}
+
+module.exports = { BreathEnvelope, REST_LEVEL };
+  }, {"../prng":"engine/prng.js","./noise":"engine/modulators/noise.js"}];
+  // ---- engine/modulators/index.js
+  defs["engine/modulators/index.js"] = [function (module, exports, require) {
+'use strict';
+
+const { hash32 } = require('../prng');
+const { makeNoise } = require('./noise');
+const { BreathEnvelope } = require('./breath');
+
+// Modulators are shared, seed-derived signals that generators read. They hold
+// no performance state, so any generator mode can use them.
+function createModulators(seed) {
+  const cache = {};
+  return {
+    seed,
+    breath: new BreathEnvelope(hash32(seed, 0xb2ea7)),
+    // A named noise field, optionally per lane: noise('drift', 2)(t).
+    noise(name, index, opts) {
+      const key = name + ':' + (index | 0);
+      if (!cache[key]) {
+        let h = 0;
+        for (let i = 0; i < name.length; i++) h = hash32(h, name.charCodeAt(i));
+        cache[key] = makeNoise(hash32(seed, h, index | 0), opts);
+      }
+      return cache[key];
+    },
+  };
+}
+
+module.exports = { createModulators, makeNoise, BreathEnvelope };
+  }, {"../prng":"engine/prng.js","./noise":"engine/modulators/noise.js","./breath":"engine/modulators/breath.js"}];
+  // ---- engine/modulators/noise.js
+  defs["engine/modulators/noise.js"] = [function (module, exports, require) {
+'use strict';
+
+const { hash32 } = require('../prng');
+
+// Smooth correlated noise for drift, swing and velocity wander.
+//
+// Each octave is a uniform cubic B-spline through random lattice values, so
+// the curve is C2-continuous and stays inside the lattice's [-1, 1] range.
+// Octaves at doubling frequencies are summed with a persistence factor:
+// persistence 1 gives equal energy per octave (1/f, "pink"); 0.5 is closer
+// to a random walk (1/f^2). Defaults sit between the two.
+//
+// Everything is a pure function of (seed, x), so any point can be evaluated
+// in any order. That random access is what makes the generators independent
+// of how the timeline is cut into windows.
+
+function lattice(seed, i) {
+  return hash32(seed, i) / 2147483648 - 1;
+}
+
+function bspline(seed, x) {
+  const i = Math.floor(x);
+  const t = x - i;
+  const t2 = t * t;
+  const t3 = t2 * t;
+  const w0 = (1 - 3 * t + 3 * t2 - t3) / 6;
+  const w1 = (3 * t3 - 6 * t2 + 4) / 6;
+  const w2 = (-3 * t3 + 3 * t2 + 3 * t + 1) / 6;
+  const w3 = t3 / 6;
+  return (
+    w0 * lattice(seed, i - 1) +
+    w1 * lattice(seed, i) +
+    w2 * lattice(seed, i + 1) +
+    w3 * lattice(seed, i + 2)
+  );
+}
+
+// Standard deviation of one B-spline octave over iid U(-1,1) lattice values
+// (sqrt(1/3) * ~0.69, averaged over the spline phase). Used to normalise.
+const BSPLINE_SD = 0.4;
+
+// Returns f(x) -> value in (-1, 1), sd ~0.45. `x` is in lattice units: one
+// unit is the spacing of the coarsest octave.
+function makeNoise(seed, opts) {
+  const octaves = (opts && opts.octaves) || 4;
+  const persistence = opts && opts.persistence !== undefined ? opts.persistence : 0.6;
+  const seeds = [];
+  const offsets = [];
+  const amps = [];
+  let sumSq = 0;
+  for (let k = 0; k < octaves; k++) {
+    seeds.push(hash32(seed, 0x5eed, k));
+    // Offset each octave so lattice points of different octaves don't line up.
+    offsets.push((hash32(seed, 0x0ff5, k) / 4294967296) * 1024);
+    const a = Math.pow(persistence, k);
+    amps.push(a);
+    sumSq += a * a;
+  }
+  const norm = 1 / (Math.sqrt(sumSq) * BSPLINE_SD);
+  return function noise(x) {
+    let sum = 0;
+    let f = 1;
+    for (let k = 0; k < octaves; k++) {
+      sum += amps[k] * bspline(seeds[k], x * f + offsets[k]);
+      f *= 2;
+    }
+    return Math.tanh(sum * norm * 0.5);
+  };
+}
+
+module.exports = { makeNoise, bspline };
+  }, {"../prng":"engine/prng.js"}];
+  // ---- engine/params.js
+  defs["engine/params.js"] = [function (module, exports, require) {
+'use strict';
+
+// The exposed parameters. This list is the single source of truth: the Max
+// patch generator builds its live.dial / live.numbox objects from it.
+// Values are in display units (0-100 %, seed as an integer); generators read
+// the normalised 0..1 copies in state.p.
+
+const PARAMS = [
+  { id: 'density', name: 'Density', type: 'float', min: 0, max: 100, default: 55, unit: '%',
+    doc: 'How many notes play. 0 is silence; 100 plays every candidate of the current figure.' },
+  { id: 'looseness', name: 'Looseness', type: 'float', min: 0, max: 100, default: 25, unit: '%',
+    doc: 'Per-note timing scatter, and how often figures use triplets and quintuplets.' },
+  { id: 'drift', name: 'Drift', type: 'float', min: 0, max: 100, default: 25, unit: '%',
+    doc: 'Slow correlated timing drift: the ensemble rushes and drags, each lane pushes or pulls.' },
+  { id: 'swing', name: 'Swing', type: 'float', min: 0, max: 100, default: 20, unit: '%',
+    doc: 'Average swing (100 = triplet feel). The actual amount wanders over time.' },
+  { id: 'breath', name: 'Breath', type: 'float', min: 0, max: 100, default: 40, unit: '%',
+    doc: 'Depth of phrase-level density breathing: builds, thinning out and rests.' },
+  { id: 'memory', name: 'Memory', type: 'float', min: 0, max: 100, default: 65, unit: '%',
+    doc: 'How strongly the groove holds. 0 changes figure almost every bar; 100 locks it, varying only at phrase ends.' },
+  { id: 'accent', name: 'Accent', type: 'float', min: 0, max: 100, default: 50, unit: '%',
+    doc: 'Velocity contrast: metric emphasis depth and accent strength.' },
+  { id: 'ghosts', name: 'Ghosts', type: 'float', min: 0, max: 100, default: 35, unit: '%',
+    doc: 'Amount of ghost notes and flams.' },
+  { id: 'seed', name: 'Seed', type: 'int', min: 0, max: 9999, default: 1, unit: '',
+    doc: 'Random seed. Same seed and settings give the same performance.' },
+  { id: 'mode', name: 'Mode', type: 'enum', options: ['Organic', 'Irregular'], min: 0, max: 1, default: 0, unit: '',
+    doc: 'Pattern type. Organic: a drifting player with memory. Irregular: odd groupings (3+3+2...) that reshape the bar.' },
+];
+
+const BY_ID = {};
+for (const p of PARAMS) BY_ID[p.id] = p;
+
+// Clamp to range; ints are rounded. Returns undefined for values that can't
+// be interpreted (NaN, strings, objects) so callers can keep the old value.
+function sanitize(id, value) {
+  const spec = BY_ID[id];
+  if (!spec) return undefined;
+  if (spec.options && typeof value === 'string') {
+    const i = spec.options.findIndex((o) => o.toLowerCase() === value.trim().toLowerCase());
+    if (i >= 0) return i;
+  }
+  const v = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
+  if (!Number.isFinite(v)) return undefined;
+  const c = Math.min(spec.max, Math.max(spec.min, v));
+  return spec.type === 'float' ? c : Math.round(c);
+}
+
+function defaults() {
+  const out = {};
+  for (const p of PARAMS) out[p.id] = p.default;
+  return out;
+}
+
+// Display values -> what generators read (floats 0..1, seed as uint32).
+function normalize(values) {
+  const out = {};
+  for (const p of PARAMS) {
+    const v = values[p.id];
+    out[p.id] = p.type === 'float' ? (v - p.min) / (p.max - p.min) : v >>> 0;
+  }
+  return out;
+}
+
+module.exports = { PARAMS, PARAM_IDS: PARAMS.map((p) => p.id), sanitize, defaults, normalize, paramSpec: (id) => BY_ID[id] };
+  }, {}];
+  // ---- engine/prng.js
+  defs["engine/prng.js"] = [function (module, exports, require) {
+'use strict';
+
+// Seeded randomness. Integer math only (Math.imul, >>>), so results are
+// bit-identical in any JS engine.
+
+function fmix32(h) {
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x85ebca6b);
+  h ^= h >>> 13;
+  h = Math.imul(h, 0xc2b2ae35);
+  h ^= h >>> 16;
+  return h >>> 0;
+}
+
+// murmur3_32 over a list of 32-bit integers. Used to derive independent,
+// random-access streams: hash32(seed, SALT, bar, noteId).
+function hash32() {
+  let h = 0x9747b28c ^ arguments.length;
+  for (let i = 0; i < arguments.length; i++) {
+    let k = arguments[i] | 0;
+    k = Math.imul(k, 0xcc9e2d51);
+    k = (k << 15) | (k >>> 17);
+    k = Math.imul(k, 0x1b873593);
+    h ^= k;
+    h = (h << 13) | (h >>> 19);
+    h = (Math.imul(h, 5) + 0xe6546b64) | 0;
+  }
+  return fmix32(h);
+}
+
+function hashFloat() {
+  return hash32.apply(null, arguments) / 4294967296;
+}
+
+// Small fast PRNG (mulberry32) wrapped with the helpers the generators need.
+class Rng {
+  constructor(seed) {
+    this.s = seed >>> 0;
+  }
+
+  float() {
+    this.s = (this.s + 0x6d2b79f5) | 0;
+    let t = Math.imul(this.s ^ (this.s >>> 15), 1 | this.s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+
+  range(a, b) {
+    return a + (b - a) * this.float();
+  }
+
+  int(n) {
+    return Math.floor(this.float() * n);
+  }
+
+  chance(p) {
+    return this.float() < p;
+  }
+
+  // Bounded approximately-normal value (Irwin-Hall, 4 uniforms): mean 0,
+  // sd 1, hard limit +-3.46. Bounded tails keep timing deviations bounded.
+  gauss() {
+    return (this.float() + this.float() + this.float() + this.float() - 2) * 1.7320508075688772;
+  }
+
+  pick(arr) {
+    return arr[this.int(arr.length)];
+  }
+
+  // Index chosen with probability proportional to weights[i].
+  weighted(weights) {
+    let total = 0;
+    for (let i = 0; i < weights.length; i++) total += Math.max(0, weights[i]);
+    if (total <= 0) return this.int(weights.length);
+    let r = this.float() * total;
+    for (let i = 0; i < weights.length; i++) {
+      r -= Math.max(0, weights[i]);
+      if (r < 0) return i;
+    }
+    return weights.length - 1;
+  }
+}
+
+module.exports = { hash32, hashFloat, fmix32, Rng };
+  }, {}];
+  // ---- engine/scheduler.js
+  defs["engine/scheduler.js"] = [function (module, exports, require) {
+'use strict';
+
+// Look-ahead scheduler: turns transport snapshots into timestamped MIDI.
+// Host-agnostic (no Max APIs), so it is tested in Node with a simulated
+// transport; the Max adapter only feeds it snapshots and forwards commands.
+//
+// Why it exists: in Max, JavaScript ([js] and [v8]) runs on the low-priority
+// main thread, which can stall for tens of milliseconds. So the script never
+// plays notes "now". On every tick it reads the transport, asks the engine
+// for everything due within `lookaheadMs`, and emits each note with a delay
+// in ms relative to that reading. The host hands notes to a high-priority
+// delay line ([pipe] in Max), so timing comes from Max's scheduler, not from
+// when the script happened to run.
+//
+// Three timelines:
+//   song  Live's position in beats; jumps back at loop wraps.
+//   U     unrolled play time in beats; never jumps back. Delays use U.
+//   E     engine time; advances with U and keeps the song's bar phase.
+// A segment is a stretch where all three advance together. When the
+// look-ahead crosses the loop end, the next segment (starting at the loop
+// start) is planned before the transport wraps, so the first notes of every
+// pass are on time and the performance keeps evolving across passes.
+//
+// tick(snapshot) -> commands
+//   snapshot: { playing, beat (song position), bpm, meter: {num, den}, timeMs }
+//   commands: { type: 'note', note, velocity, delayMs, songBeat }  (velocity 0 = note-off)
+//             { type: 'clear' }  (cancel everything still pending in the delay line)
+
+const EPS = 1e-9;
+const MIN_GAP = 0.02; // beats: same-pitch onsets closer than this are merged
+
+function num(v, fallback) {
+  return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+}
+
+class LookaheadScheduler {
+  constructor(engine, opts) {
+    const o = opts || {};
+    this.engine = engine;
+    this.lookaheadMs = num(o.lookaheadMs, 150);
+    this.maxLateMs = num(o.maxLateMs, 30); // later than this: drop instead of playing late
+    this.startSnapMs = num(o.startSnapMs, 80); // see _start
+    this.snapGrid = num(o.snapGrid, 0.25);
+    this.tempoTolerance = num(o.tempoTolerance, 0.02); // reschedule pending notes above this change
+    this.jumpTolerance = num(o.jumpTolerance, 0.5); // beats of unexplained movement = a jump
+    this.loop = { on: false, start: 0, end: 0 };
+    this.pendingLoop = null;
+    this.running = false;
+    this.segs = [];
+    this.cursorE = 0;
+    this.uNow = 0;
+    this.lastSong = 0;
+    this.lastTimeMs = null;
+    this.bpm = 120;
+    this.schedBpm = 120;
+    this.meterKey = '4/4';
+    this.inFlight = [];
+    this.lateAllowance = this.maxLateMs;
+    this.needsResync = false;
+    this.stats = { notes: 0, late: 0, dropped: 0, merged: 0, starts: 0, resyncs: 0, wraps: 0, reschedules: 0 };
+  }
+
+  // Live's arrangement loop. Applied at the next tick, so the separate
+  // loop / start / length updates Live sends are seen together.
+  setLoop(on, start, length) {
+    this.pendingLoop = { on: !!on, start: num(start, 0), length: num(length, 0) };
+  }
+
+  tick(t) {
+    const cmds = [];
+    const song = num(t && t.beat, NaN);
+    if (!Number.isFinite(song)) return cmds;
+    const bpm = t.bpm > 0 && Number.isFinite(t.bpm) ? t.bpm : this.bpm;
+    const meter = t.meter || { num: 4, den: 4 };
+    const meterKey = meter.num + '/' + meter.den;
+    if (this.pendingLoop) this._applyLoop(song);
+
+    if (!t.playing) {
+      if (this.running) this._stop(cmds);
+    } else {
+      if (!this.running) this._start(t, song, bpm, cmds, false);
+      else if (this.needsResync || meterKey !== this.meterKey) this._resync(t, song, bpm, cmds);
+      else {
+        const u = this._locate(song, bpm, t.timeMs);
+        if (u === null) this._resync(t, song, bpm, cmds);
+        else if (u > this.uNow) this.uNow = u;
+      }
+      if (Math.abs(bpm - this.schedBpm) > this.schedBpm * this.tempoTolerance) this._reschedule(cmds, bpm);
+      this.engine.setTempo(bpm);
+      this.inFlight = this.inFlight.filter((f) => f.uOff > this.uNow);
+      this._fill(cmds, bpm);
+      this.lateAllowance = this.maxLateMs;
+    }
+    this.bpm = bpm;
+    this.lastSong = song;
+    this.lastTimeMs = num(t.timeMs, null);
+    return cmds;
+  }
+
+  // Stop everything now: cancel pending notes, release sounding ones. If the
+  // transport is still playing, the next tick starts a fresh performance.
+  panic() {
+    const cmds = [];
+    this._stop(cmds);
+    return cmds;
+  }
+
+  _segment(songStart, eStart, uStart) {
+    const L = this.loop;
+    const songEnd = L.on && songStart < L.end - EPS ? L.end : Infinity;
+    return { songStart, songEnd, eStart, uStart };
+  }
+
+  // Playback starts are only seen on the first tick after they happen, a few
+  // ms late. If the position is just past a 16th, assume playback started on
+  // it, so the downbeat isn't skipped (it plays immediately, slightly late).
+  _start(t, song, bpm, cmds, isResync) {
+    const msPerBeat = 60000 / bpm;
+    const g = Math.floor(song / this.snapGrid + EPS) * this.snapGrid;
+    const start = (song - g) * msPerBeat <= this.startSnapMs ? g : song;
+    const meter = t.meter || { num: 4, den: 4 };
+    this.engine.setTempo(bpm);
+    this.engine.setMeter(meter.num, meter.den);
+    this.engine.reset(start);
+    this.meterKey = meter.num + '/' + meter.den;
+    this.segs = [this._segment(start, start, start)];
+    this.cursorE = start;
+    this.uNow = start + (song - start);
+    this.inFlight = [];
+    this.running = true;
+    this.needsResync = false;
+    this.schedBpm = bpm;
+    this.lateAllowance = Math.max(this.maxLateMs, this.startSnapMs);
+    if (isResync) this.stats.resyncs++;
+    else this.stats.starts++;
+  }
+
+  // An unexplained jump (clicking elsewhere in the arrangement, a loop edit
+  // that invalidates notes already scheduled, a meter change): start a new
+  // performance at the new position.
+  _resync(t, song, bpm, cmds) {
+    this._stop(cmds);
+    this._start(t, song, bpm, cmds, true);
+  }
+
+  _stop(cmds) {
+    cmds.push({ type: 'clear' });
+    const notes = [];
+    const add = (n) => {
+      if (notes.indexOf(n) < 0) notes.push(n);
+    };
+    this.engine.lanes.forEach((l) => add(l.note));
+    this.inFlight.forEach((f) => add(f.note));
+    notes.forEach((n) => cmds.push({ type: 'note', note: n, velocity: 0, delayMs: 0, songBeat: -1 }));
+    this.inFlight = [];
+    this.running = false;
+    this.segs = [];
+    this.needsResync = false;
+  }
+
+  // Map the reported song position to U, accepting normal advance within the
+  // current segment or a wrap into the planned next one.
+  _locate(song, bpm, timeMs) {
+    const tol = Math.max(0.01, (15 * bpm) / 60000);
+    const elapsed =
+      Number.isFinite(timeMs) && Number.isFinite(this.lastTimeMs) ? (Math.max(0, timeMs - this.lastTimeMs) * bpm) / 60000 : null;
+    const seg = this.segs[0];
+    if (song >= this.lastSong - tol && song >= seg.songStart - tol && song < seg.songEnd + tol) {
+      if (elapsed === null || Math.abs(song - (this.lastSong + elapsed)) <= this.jumpTolerance) {
+        return seg.uStart + (song - seg.songStart);
+      }
+    }
+    const nx = this.segs[1];
+    if (nx && song >= nx.songStart - tol && song < nx.songEnd + tol) {
+      const u = nx.uStart + (song - nx.songStart);
+      const ok =
+        elapsed === null
+          ? u - this.uNow < (this.lookaheadMs * bpm) / 60000 + this.jumpTolerance
+          : Math.abs(u - (this.uNow + elapsed)) <= this.jumpTolerance;
+      if (ok) {
+        this.segs.shift();
+        this.stats.wraps++;
+        return u;
+      }
+    }
+    return null;
+  }
+
+  _fill(cmds, bpm) {
+    const msPerBeat = 60000 / bpm;
+    const horizonU = this.uNow + this.lookaheadMs / msPerBeat;
+    for (let guard = 0; guard < 64; guard++) {
+      const seg = this.segs[this.segs.length - 1];
+      const segUEnd = seg.uStart + (seg.songEnd - seg.songStart);
+      const cursorU = seg.uStart + (this.cursorE - seg.eStart);
+      const targetU = Math.min(horizonU, segUEnd);
+      if (targetU > cursorU + EPS) {
+        const targetE = seg.eStart + (targetU - seg.uStart);
+        const evs = this.engine.generate(this.cursorE, targetE);
+        for (const ev of evs) this._schedule(cmds, seg, ev, msPerBeat);
+        this.cursorE = targetE;
+      }
+      if (horizonU <= segUEnd + EPS) break;
+      const next = this._wrapSegment(seg);
+      if (!next) break;
+      this.segs.push(next);
+      this.cursorE = next.eStart;
+    }
+  }
+
+  // The next pass of the loop. E skips forward (by less than a bar) only if
+  // the loop length isn't a whole number of bars, to keep the bar phase.
+  _wrapSegment(seg) {
+    if (!this.loop.on || !Number.isFinite(seg.songEnd)) return null;
+    const bar = this.engine.meter.barLen;
+    const len = seg.songEnd - seg.songStart;
+    const eEnd = seg.eStart + len;
+    let d = (this.loop.start - eEnd) % bar;
+    if (d < 0) d += bar;
+    if (d < 1e-6 || bar - d < 1e-6) d = 0;
+    return { songStart: this.loop.start, songEnd: this.loop.end, eStart: eEnd + d, uStart: seg.uStart + len };
+  }
+
+  _schedule(cmds, seg, ev, msPerBeat) {
+    const u = seg.uStart + (ev.beat - seg.eStart);
+    const songBeat = seg.songStart + (ev.beat - seg.eStart);
+    let uOn = u;
+    if (u < this.uNow) {
+      if ((this.uNow - u) * msPerBeat > this.lateAllowance) {
+        this.stats.dropped++;
+        return;
+      }
+      this.stats.late++;
+      uOn = this.uNow;
+    }
+    const uOff = Math.max(uOn + 0.01, u + ev.duration);
+    // The engine keeps each lane clean in engine time, but in play time two
+    // onsets of one pitch can still meet: across the seam of a loop that
+    // isn't a whole number of bars, or when late notes collapse onto "now".
+    const prev = this._lastOf(ev.note);
+    if (prev) {
+      if (uOn - prev.uOn < MIN_GAP) {
+        this.stats.merged++;
+        return;
+      }
+      if (uOn < prev.uOff) {
+        cmds.push({ type: 'note', note: ev.note, velocity: 0, delayMs: (uOn - this.uNow) * msPerBeat, songBeat: -1 });
+        prev.uOff = uOn;
+      }
+    }
+    cmds.push({ type: 'note', note: ev.note, velocity: ev.velocity, delayMs: (uOn - this.uNow) * msPerBeat, songBeat });
+    cmds.push({ type: 'note', note: ev.note, velocity: 0, delayMs: (uOff - this.uNow) * msPerBeat, songBeat: -1 });
+    this.inFlight.push({ note: ev.note, velocity: ev.velocity, uOn, uOff, songBeat });
+    this.stats.notes++;
+  }
+
+  _lastOf(note) {
+    for (let i = this.inFlight.length - 1; i >= 0; i--) if (this.inFlight[i].note === note) return this.inFlight[i];
+    return null;
+  }
+
+  // Tempo changed noticeably: pending delays were computed at the old tempo.
+  // Clear the delay line and re-issue every pending note-on/off at the new one.
+  _reschedule(cmds, bpm) {
+    const msPerBeat = 60000 / bpm;
+    cmds.push({ type: 'clear' });
+    for (const f of this.inFlight) {
+      if (f.uOff <= this.uNow) continue;
+      if (f.uOn > this.uNow) {
+        cmds.push({ type: 'note', note: f.note, velocity: f.velocity, delayMs: (f.uOn - this.uNow) * msPerBeat, songBeat: f.songBeat });
+      }
+      cmds.push({ type: 'note', note: f.note, velocity: 0, delayMs: (f.uOff - this.uNow) * msPerBeat, songBeat: -1 });
+    }
+    this.schedBpm = bpm;
+    this.stats.reschedules++;
+  }
+
+  _applyLoop(song) {
+    const L = this.pendingLoop;
+    this.pendingLoop = null;
+    const on = L.on && L.length >= 1 / 16;
+    const next = on ? { on: true, start: L.start, end: L.start + L.length } : { on: false, start: 0, end: 0 };
+    const cur = this.loop;
+    if (cur.on === next.on && Math.abs(cur.start - next.start) < EPS && Math.abs(cur.end - next.end) < EPS) return;
+    this.loop = next;
+    if (!this.running) return;
+    if (this.segs.length > 1) {
+      this.needsResync = true; // notes after the planned wrap are already scheduled
+      return;
+    }
+    const seg = this.segs[0];
+    const end = next.on && song < next.end - EPS && seg.songStart < next.end - EPS ? next.end : Infinity;
+    const cursorSong = seg.songStart + (this.cursorE - seg.eStart);
+    if (cursorSong > end + EPS) this.needsResync = true;
+    else seg.songEnd = end;
+  }
+}
+
+module.exports = { LookaheadScheduler };
+  }, {}];
+  // ---- engine/timeline.js
+  defs["engine/timeline.js"] = [function (module, exports, require) {
+'use strict';
+
+// Window logic shared by all generator modes.
+//
+// Public contract: generate(start, end) returns every event with
+// start <= event.beat < end, sorted, exactly once across consecutive calls,
+// however the timeline is cut into windows.
+//
+// Generators work on anchor windows and their events can land up to
+// maxDeviation before or after the anchor. So the timeline renders 1-beat
+// anchor chunks ahead of the requested window, keeps rendered events in a
+// cache sorted by final beat, and only hands out an event once every chunk
+// that could still produce something before it has been rendered. Rendered
+// events are latched: parameter changes affect chunks not yet rendered,
+// never events already in the cache, so moving a knob can't duplicate or
+// lose an event at a window boundary.
+//
+// It also enforces per-lane playability: onsets closer than MIN_GAP are
+// merged, and durations are clipped so a lane never overlaps itself.
+
+const MAX_DURATION = 0.5; // beats
+const MIN_GAP = 0.02; // beats
+const RETAIN = 4; // beats of history kept for re-queries
+const EPS = 1e-9;
+
+function compareEvents(a, b) {
+  return a.beat - b.beat || a.lane - b.lane || a.seq - b.seq;
+}
+
+class Timeline {
+  constructor(generator, state) {
+    this.gen = generator;
+    this.state = state;
+    this.maxDev = Math.max(0.05, generator.maxDeviation || 0.5);
+    this.seq = 0;
+    this.reset(0);
+  }
+
+  // Switch generator mode. The new mode starts from its own initial state;
+  // events already rendered (up to about a beat ahead) still play.
+  setGenerator(generator) {
+    this.gen = generator;
+    generator.init(this.state);
+  }
+
+  // Start a new performance at `start`. Notes aimed before `start` are not
+  // played; notes aimed at or after it but pulled earlier are played at it.
+  reset(start) {
+    const st = this.state;
+    st.origin = Math.floor(start / st.meter.barLen + EPS) * st.meter.barLen;
+    this.gen.init(st);
+    this.cache = [];
+    this.renderedTo = start;
+    this.floor = start;
+    this.lastEnd = start;
+  }
+
+  generate(start, end) {
+    if (!(end > start) || !Number.isFinite(start) || !Number.isFinite(end)) return [];
+    if (start > this.lastEnd + EPS) this._jump(start);
+    this._renderUntil(end + MAX_DURATION + this.maxDev);
+    const out = [];
+    const cache = this.cache;
+    for (let i = this._lowerBound(start); i < cache.length; i++) {
+      const ev = cache[i];
+      if (ev.beat >= end) break;
+      if (ev.dropped) continue;
+      if (!ev.done) this._finalize(i);
+      ev.returned = true;
+      out.push({ beat: ev.beat, lane: ev.lane, note: ev.note, velocity: ev.velocity, duration: ev.duration });
+    }
+    if (end > this.lastEnd) this.lastEnd = end;
+    this._trim(this.lastEnd - RETAIN);
+    return out;
+  }
+
+  // Forward gap (seek, or a loop that isn't bar-aligned): forget what was
+  // rendered but not returned and render again from `start`. Rendering is
+  // stateless per note, so the re-rendered notes are the same ones.
+  _jump(start) {
+    this.cache = this.cache.filter((ev) => ev.returned);
+    this.renderedTo = start;
+    this.floor = start;
+    this.lastEnd = start;
+  }
+
+  _renderUntil(need) {
+    while (this.renderedTo < need) {
+      const c0 = this.renderedTo;
+      const c1 = Math.floor(c0 + EPS) + 1;
+      const evs = this.gen.generate(c0, c1, this.state) || [];
+      const lo = Math.max(c0 - this.maxDev, this.floor);
+      const fresh = [];
+      for (const e of evs) {
+        const ev = sanitize(e, this.state.lanes);
+        if (!ev) continue;
+        // Bound deviations so the look-ahead argument above holds even if a
+        // generator misbehaves.
+        ev.beat = Math.min(Math.max(ev.beat, lo), c1 + this.maxDev);
+        ev.seq = this.seq++;
+        fresh.push(ev);
+      }
+      this._insert(fresh);
+      this.renderedTo = c1;
+    }
+  }
+
+  _insert(fresh) {
+    if (!fresh.length) return;
+    fresh.sort(compareEvents);
+    const merged = [];
+    const a = this.cache;
+    let i = 0;
+    let j = 0;
+    while (i < a.length || j < fresh.length) {
+      if (j >= fresh.length || (i < a.length && compareEvents(a[i], fresh[j]) <= 0)) merged.push(a[i++]);
+      else merged.push(fresh[j++]);
+    }
+    this.cache = merged;
+  }
+
+  // Merge too-close onsets and clip the duration against the next onset in
+  // the same lane. Everything this looks at is already complete in the cache.
+  _finalize(i) {
+    const ev = this.cache[i];
+    for (let j = i + 1; j < this.cache.length; j++) {
+      const nx = this.cache[j];
+      if (nx.beat > ev.beat + ev.duration) break;
+      if (nx.dropped || nx.lane !== ev.lane) continue;
+      if (nx.beat - ev.beat < MIN_GAP) {
+        nx.dropped = true;
+        continue;
+      }
+      ev.duration = Math.min(ev.duration, (nx.beat - ev.beat) * 0.9);
+      break;
+    }
+    ev.done = true;
+  }
+
+  _lowerBound(beat) {
+    let lo = 0;
+    let hi = this.cache.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (this.cache[mid].beat < beat) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  _trim(before) {
+    let n = 0;
+    while (n < this.cache.length && this.cache[n].beat < before && (this.cache[n].returned || this.cache[n].dropped)) n++;
+    if (n) this.cache.splice(0, n);
+  }
+}
+
+function sanitize(e, lanes) {
+  if (!e || !Number.isFinite(e.beat)) return null;
+  const lane = e.lane | 0;
+  if (lane < 0 || lane >= lanes.length) return null;
+  const note = Number.isFinite(e.note) ? Math.min(127, Math.max(0, Math.round(e.note))) : lanes[lane].note;
+  const velocity = Math.min(127, Math.max(1, Math.round(Number(e.velocity) || 0)));
+  let duration = Number(e.duration);
+  if (!(duration > 0)) duration = 0.1;
+  duration = Math.min(MAX_DURATION, Math.max(0.005, duration));
+  return { beat: e.beat, lane, note, velocity, duration, seq: 0, done: false, dropped: false, returned: false };
+}
+
+module.exports = { Timeline, MAX_DURATION, MIN_GAP };
+  }, {}];
+  // ---- preview/src/index.js
+  defs["preview/src/index.js"] = [function (module, exports, require) {
+'use strict';
+
+// Entry for the preview page's bundle: the same engine the Max device and the
+// plugin run, plus the MIDI writer and the placeholder kit.
+module.exports = {
+  E: require('../../engine'),
+  midi: require('../../cli/lib/midifile'),
+  kit: require('../../cli/lib/kit'),
+};
+  }, {"../../engine":"engine/index.js","../../cli/lib/midifile":"cli/lib/midifile.js","../../cli/lib/kit":"cli/lib/kit.js"}];
+  var cache = {};
+  function load(id) {
+    if (cache[id]) return cache[id].exports;
+    var def = defs[id];
+    var module = { exports: {} };
+    cache[id] = module;
+    def[0](module, module.exports, function (spec) {
+      var dep = def[1][spec];
+      if (!dep) throw new Error('cannot find module ' + spec + ' from ' + id);
+      return load(dep);
+    });
+    return module.exports;
+  }
+  return load("preview/src/index.js");
+})();
+</script>
+<script>
+// Organic Groove Lab: the preview page. Runs the same engine as the Max device
+// and the plugin (bundled above as OrganicPreviewLib), plays it through the
+// placeholder kit with a Web Audio look-ahead scheduler, and saves MIDI clips.
+(function () {
+  'use strict';
+  var L = OrganicPreviewLib;
+  var E = L.E;
+  var LOOKAHEAD = 0.15; // seconds of notes scheduled ahead
+  var TICK_MS = 25;
+  var LANE_COLORS = ['--kick', '--snare', '--hat', '--perc'];
+  var NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var specs = E.PARAMS;
+  var knobSpecs = specs.filter(function (p) { return p.type === 'float'; });
+  var values = {};
+  specs.forEach(function (p) { values[p.id] = p.default; });
+  var bpm = 120;
+
+  // ---- engine ---------------------------------------------------------------
+  var engine = E.createEngine({ params: values, bpm: bpm });
+  var lanes = engine.lanes;
+  var levels = lanes.map(function () { return 0.8; });
+  var muted = lanes.map(function () { return false; });
+
+  function setParam(id, v) {
+    engine.setParam(id, v);
+    values[id] = engine.getParams()[id];
+    refreshSettings();
+    schedulePreview();
+  }
+
+  // ---- audio ----------------------------------------------------------------
+  var ctx = null;
+  var buffers = {};
+  var laneGain = [];
+  var scheduled = [];
+  function ensureAudio() {
+    if (ctx) return ctx;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    ctx = new AC();
+    var master = ctx.createGain();
+    master.gain.value = 0.9;
+    var comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -10;
+    comp.ratio.value = 4;
+    master.connect(comp);
+    comp.connect(ctx.destination);
+    lanes.forEach(function (lane, i) {
+      var g = ctx.createGain();
+      var voice = L.kit.VOICES[lane.note] || L.kit.VOICES[37];
+      var out = g;
+      if (ctx.createStereoPanner) {
+        var pan = ctx.createStereoPanner();
+        pan.pan.value = voice.pan;
+        g.connect(pan);
+        out = pan;
+      }
+      out.connect(master);
+      laneGain.push(g);
+      applyLevel(i);
+      if (!buffers[lane.note]) {
+        var data = L.kit.renderVoice(lane.note, ctx.sampleRate, 4242 + lane.note);
+        var buf = ctx.createBuffer(1, data.length, ctx.sampleRate);
+        buf.getChannelData(0).set(data);
+        buffers[lane.note] = buf;
+      }
+    });
+    return ctx;
+  }
+  function applyLevel(i) {
+    if (laneGain[i]) laneGain[i].gain.value = muted[i] ? 0 : levels[i];
+  }
+
+  // ---- transport ------------------------------------------------------------
+  var playing = false;
+  var timer = null;
+  var anchorTime = 0;
+  var anchorBeat = 0;
+  var cursor = 0;
+  var played = []; // recent notes for the roll: {beat, lane, velocity}
+  var notesCount = 0;
+
+  function beatAt(t) { return anchorBeat + ((t - anchorTime) * bpm) / 60; }
+  function timeAt(b) { return anchorTime + ((b - anchorBeat) * 60) / bpm; }
+
+  function start(fromBar1) {
+    ensureAudio();
+    if (ctx.state === 'suspended') ctx.resume();
+    if (fromBar1 || !playing) {
+      stopSources();
+      engine.setTempo(bpm);
+      engine.reset(0);
+      anchorTime = ctx.currentTime + 0.08;
+      anchorBeat = 0;
+      cursor = 0;
+      played = [];
+      notesCount = 0;
+    }
+    if (!playing) {
+      playing = true;
+      timer = setInterval(tick, TICK_MS);
+      requestAnimationFrame(draw);
+    }
+    tick();
+    $('play').textContent = 'Stop';
+  }
+
+  function stop() {
+    playing = false;
+    clearInterval(timer);
+    stopSources();
+    allNotesOff();
+    $('play').textContent = 'Play';
+    schedulePreview();
+  }
+
+  function stopSources() {
+    var now = ctx ? ctx.currentTime : 0;
+    scheduled.forEach(function (s) {
+      try { if (s.when > now - 0.01) s.src.stop(); } catch (e) { /* already stopped */ }
+    });
+    scheduled = [];
+  }
+
+  function tick() {
+    if (!playing) return;
+    var now = ctx.currentTime;
+    var horizon = beatAt(now + LOOKAHEAD);
+    if (horizon > cursor) {
+      var evs = engine.generate(cursor, horizon);
+      cursor = horizon;
+      for (var i = 0; i < evs.length; i++) playEvent(evs[i], now);
+    }
+    scheduled = scheduled.filter(function (s) { return s.when > now - 1; });
+    if (played.length > 600) played = played.slice(-400);
+  }
+
+  function playEvent(ev, now) {
+    var when = Math.max(now, timeAt(ev.beat));
+    var buf = buffers[ev.note];
+    if (buf) {
+      var src = ctx.createBufferSource();
+      src.buffer = buf;
+      var g = ctx.createGain();
+      g.gain.value = L.kit.velocityGain(ev.note, ev.velocity);
+      src.connect(g);
+      g.connect(laneGain[ev.lane]);
+      src.start(when);
+      scheduled.push({ src: src, when: when });
+    }
+    sendMidi(ev, when - now);
+    played.push({ beat: ev.beat, lane: ev.lane, velocity: ev.velocity, duration: ev.duration });
+    notesCount++;
+  }
+
+  function setTempo(v) {
+    var b = Math.min(200, Math.max(60, Math.round(Number(v) || 120)));
+    if (playing) {
+      var now = ctx.currentTime;
+      anchorBeat = beatAt(now);
+      anchorTime = now;
+    }
+    bpm = b;
+    engine.setTempo(b);
+    $('bpm').value = b;
+    refreshSettings();
+  }
+
+  // ---- live MIDI out (works in a local copy opened in Chrome; refused inside Claude) ----
+  var midiOut = null;
+  function sendMidi(ev, delaySec) {
+    if (!midiOut) return;
+    var t = performance.now() + Math.max(0, delaySec) * 1000;
+    try {
+      midiOut.send([0x90, ev.note, ev.velocity], t);
+      midiOut.send([0x80, ev.note, 0], t + (ev.duration * 60000) / bpm);
+    } catch (e) { midiOut = null; }
+  }
+  function allNotesOff() {
+    if (!midiOut) return;
+    lanes.forEach(function (l) { try { midiOut.send([0x80, l.note, 0]); } catch (e) { /* port gone */ } });
+  }
+  function connectMidi() {
+    var status = $('status');
+    if (!navigator.requestMIDIAccess) {
+      status.textContent = 'Live MIDI needs Chrome or Edge with the local copy of this page (generative-sequencer/preview/organic-preview.html).';
+      return;
+    }
+    navigator.requestMIDIAccess().then(function (access) {
+      var sel = $('midi-out');
+      sel.innerHTML = '';
+      var none = document.createElement('option');
+      none.value = '';
+      none.textContent = 'No MIDI output';
+      sel.appendChild(none);
+      access.outputs.forEach(function (o) {
+        var opt = document.createElement('option');
+        opt.value = o.id;
+        opt.textContent = o.name;
+        sel.appendChild(opt);
+      });
+      sel.hidden = false;
+      sel.onchange = function () {
+        midiOut = sel.value ? access.outputs.get(sel.value) : null;
+        status.textContent = midiOut ? 'Sending to ' + midiOut.name + '. In Ableton, set a Drum Rack track’s MIDI From to it and Monitor to In.' : '';
+      };
+      status.textContent = access.outputs.size
+        ? 'Pick a port. On a Mac, enable the IAC Driver in Audio MIDI Setup to reach Ableton.'
+        : 'No MIDI outputs found. On a Mac, enable the IAC Driver in Audio MIDI Setup.';
+    }, function () {
+      status.textContent = 'This view blocks MIDI ports. Open the local copy of this page (generative-sequencer/preview/organic-preview.html) in Chrome to send live MIDI.';
+    });
+  }
+
+  // ---- saving clips ---------------------------------------------------------
+  function clipEvents(bars) {
+    var e = E.createEngine({ params: values, bpm: bpm });
+    e.reset(0);
+    var total = bars * e.meter.barLen;
+    var out = [];
+    for (var b = 0; b < total; b += 0.25) out = out.concat(e.generate(b, Math.min(total, b + 0.25)));
+    return { notes: out, meter: e.meter };
+  }
+  function clipName(bars) {
+    var mode = specs.filter(function (p) { return p.id === 'mode'; })[0].options[values.mode].toLowerCase();
+    return mode + '-seed' + values.seed + '-' + bpm + 'bpm-' + bars + 'bars';
+  }
+  function midiBytes(bars) {
+    var c = clipEvents(bars);
+    return L.midi.writeMidi({ notes: c.notes, bpm: bpm, meter: c.meter, name: clipName(bars) });
+  }
+
+  // Minimal stored (uncompressed) zip with one file: the save dialog inside
+  // Claude takes .zip but not .mid.
+  var CRC = (function () {
+    var t = new Uint32Array(256);
+    for (var n = 0; n < 256; n++) {
+      var c = n;
+      for (var k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+  function crc32(bytes) {
+    var c = 0xffffffff;
+    for (var i = 0; i < bytes.length; i++) c = CRC[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  }
+  function zipOne(name, data) {
+    var nameBytes = new TextEncoder().encode(name);
+    var crc = crc32(data);
+    var local = new DataView(new ArrayBuffer(30));
+    local.setUint32(0, 0x04034b50, true);
+    local.setUint16(4, 20, true);
+    local.setUint32(14, crc, true);
+    local.setUint32(18, data.length, true);
+    local.setUint32(22, data.length, true);
+    local.setUint16(26, nameBytes.length, true);
+    var central = new DataView(new ArrayBuffer(46));
+    central.setUint32(0, 0x02014b50, true);
+    central.setUint16(4, 20, true);
+    central.setUint16(6, 20, true);
+    central.setUint32(16, crc, true);
+    central.setUint32(20, data.length, true);
+    central.setUint32(24, data.length, true);
+    central.setUint16(28, nameBytes.length, true);
+    var end = new DataView(new ArrayBuffer(22));
+    end.setUint32(0, 0x06054b50, true);
+    end.setUint16(8, 1, true);
+    end.setUint16(10, 1, true);
+    end.setUint32(12, 46 + nameBytes.length, true);
+    end.setUint32(16, 30 + nameBytes.length + data.length, true);
+    return new Blob([local.buffer, nameBytes, data, central.buffer, nameBytes, end.buffer], { type: 'application/zip' });
+  }
+
+  function saveClip() {
+    var bars = Number($('bars').value);
+    var bytes = midiBytes(bars);
+    var name = clipName(bars);
+    var status = $('status');
+    var useCapability = window.claude && typeof window.claude.use === 'function';
+    if (useCapability) {
+      window.claude.use('downloads').then(function (d) {
+        if (!d) return saveLocal(bytes, name);
+        return d.save({ filename: name + '.zip', data: zipOne(name + '.mid', bytes) }).then(function () {
+          status.textContent = 'Saved ' + name + '.zip. Unzip it and drag the .mid onto a Drum Rack track.';
+        }, function (err) {
+          var code = err && err.code;
+          if (code === 'declined') status.textContent = 'Not saved.';
+          else if (code === 'rate_limited') status.textContent = 'A save dialog is already open.';
+          else status.textContent = 'Saving isn’t available in this view. Use Copy settings instead.';
+        });
+      });
+    } else {
+      saveLocal(bytes, name);
+    }
+  }
+  function saveLocal(bytes, name) {
+    var url = URL.createObjectURL(new Blob([bytes], { type: 'audio/midi' }));
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = name + '.mid';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    $('status').textContent = 'Saved ' + name + '.mid. Drag it onto a Drum Rack track.';
+  }
+
+  function settingsText() {
+    return specs.map(function (p) {
+      var v = values[p.id];
+      return p.name + '\u00a0' + (p.options ? p.options[v] : p.type === 'float' ? Math.round(v) + '\u00a0%' : v);
+    }).join(' · ') + ' · Tempo\u00a0' + bpm;
+  }
+  function refreshSettings() { $('settings').textContent = settingsText(); }
+
+  // ---- knobs ----------------------------------------------------------------
+  var ARC = 270;
+  function arcPath(frac) {
+    var a0 = (135 * Math.PI) / 180;
+    var a1 = a0 + (ARC * frac * Math.PI) / 180;
+    var r = 26;
+    var x0 = 32 + r * Math.cos(a0), y0 = 32 + r * Math.sin(a0);
+    var x1 = 32 + r * Math.cos(a1), y1 = 32 + r * Math.sin(a1);
+    var large = ARC * frac > 180 ? 1 : 0;
+    return 'M' + x0.toFixed(2) + ' ' + y0.toFixed(2) + ' A' + r + ' ' + r + ' 0 ' + large + ' 1 ' + x1.toFixed(2) + ' ' + y1.toFixed(2);
+  }
+  var knobViews = {};
+  function buildKnob(p) {
+    var cell = document.createElement('div');
+    cell.className = 'knob-cell';
+    cell.innerHTML =
+      '<div class="knob" role="slider" tabindex="0" id="knob-' + p.id + '" aria-label="' + p.name + '" aria-valuemin="0" aria-valuemax="100">' +
+      '<svg viewBox="0 0 64 64" aria-hidden="true"><path class="track" fill="none" stroke-width="5" stroke-linecap="round" d="' + arcPath(1) + '"></path>' +
+      '<path class="value" fill="none" stroke-width="5" stroke-linecap="round"></path><circle class="cap" cx="32" cy="32" r="17" stroke-width="1"></circle>' +
+      '<line class="pointer" x1="32" y1="32" x2="32" y2="18" stroke-width="2.5" stroke-linecap="round"></line></svg></div>' +
+      '<div class="knob-name">' + p.name + '</div><div class="knob-val"></div><div class="knob-doc">' + p.doc + '</div>';
+    var el = cell.querySelector('.knob');
+    knobViews[p.id] = { el: el, value: cell.querySelector('.value'), pointer: cell.querySelector('.pointer'), text: cell.querySelector('.knob-val') };
+    var dragY = null;
+    var dragV = 0;
+    el.addEventListener('pointerdown', function (e) {
+      dragY = e.clientY;
+      dragV = values[p.id];
+      el.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    });
+    el.addEventListener('pointermove', function (e) {
+      if (dragY === null) return;
+      var step = e.shiftKey ? 0.15 : 0.6;
+      setKnob(p, dragV + (dragY - e.clientY) * step);
+    });
+    el.addEventListener('pointerup', function () { dragY = null; });
+    el.addEventListener('pointercancel', function () { dragY = null; });
+    el.addEventListener('dblclick', function () { setKnob(p, p.default); });
+    el.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      setKnob(p, values[p.id] - Math.sign(e.deltaY) * (e.shiftKey ? 1 : 3));
+    }, { passive: false });
+    el.addEventListener('keydown', function (e) {
+      var d = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 10, PageDown: -10 }[e.key];
+      if (e.key === 'Home') d = -100;
+      if (e.key === 'End') d = 100;
+      if (d === undefined) return;
+      e.preventDefault();
+      setKnob(p, values[p.id] + d * (e.shiftKey ? 1 : d === 1 || d === -1 ? 2 : 1));
+    });
+    return cell;
+  }
+  function setKnob(p, v) {
+    setParam(p.id, Math.round(Math.min(p.max, Math.max(p.min, v))));
+    renderKnob(p);
+  }
+  function renderKnob(p) {
+    var k = knobViews[p.id];
+    var v = values[p.id];
+    var frac = (v - p.min) / (p.max - p.min);
+    k.value.setAttribute('d', frac > 0.001 ? arcPath(frac) : '');
+    var ang = 135 + ARC * frac;
+    k.pointer.setAttribute('transform', 'rotate(' + (ang + 90) + ' 32 32)');
+    k.text.textContent = Math.round(v) + ' %';
+    k.el.setAttribute('aria-valuenow', String(Math.round(v)));
+    k.el.setAttribute('aria-valuetext', Math.round(v) + ' percent');
+  }
+
+  // ---- mode, seed, kit ------------------------------------------------------
+  var modeSpec = specs.filter(function (p) { return p.id === 'mode'; })[0];
+  function buildMode() {
+    var box = $('mode');
+    modeSpec.options.forEach(function (name, i) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.id = 'mode-' + name.toLowerCase();
+      b.textContent = name;
+      b.addEventListener('click', function () {
+        setParam('mode', i);
+        renderMode();
+      });
+      box.appendChild(b);
+    });
+  }
+  function renderMode() {
+    modeSpec.options.forEach(function (name, i) {
+      $('mode-' + name.toLowerCase()).setAttribute('aria-pressed', String(values.mode === i));
+    });
+  }
+  function noteName(n) { return NOTE_NAMES[n % 12] + (Math.floor(n / 12) - 2); }
+  function buildLanes() {
+    var box = $('lanes');
+    lanes.forEach(function (lane, i) {
+      var row = document.createElement('div');
+      row.className = 'lane';
+      row.innerHTML =
+        '<span class="swatch" style="background:var(' + LANE_COLORS[i % 4] + ')"></span>' +
+        '<span><span class="name">' + lane.name + '</span> <span class="note">' + noteName(lane.note) + ' · ' + lane.note + '</span></span>' +
+        '<input type="range" min="0" max="1" step="0.01" value="0.8" id="level-' + i + '" aria-label="' + lane.name + ' level">' +
+        '<button type="button" id="mute-' + i + '" aria-pressed="false">Mute</button>';
+      box.appendChild(row);
+      row.querySelector('input').addEventListener('input', function (e) {
+        levels[i] = Number(e.target.value);
+        applyLevel(i);
+      });
+      var mb = row.querySelector('button');
+      mb.addEventListener('click', function () {
+        muted[i] = !muted[i];
+        mb.setAttribute('aria-pressed', String(muted[i]));
+        applyLevel(i);
+      });
+    });
+  }
+
+  // ---- roll -----------------------------------------------------------------
+  var canvas = $('roll');
+  var previewNotes = [];
+  var previewTimer = null;
+  function schedulePreview() {
+    if (playing) return;
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(function () {
+      previewNotes = clipEvents(4).notes;
+      draw();
+    }, 60);
+  }
+  function cssVar(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function draw() {
+    var dpr = window.devicePixelRatio || 1;
+    var w = canvas.clientWidth;
+    var h = canvas.clientHeight;
+    if (canvas.width !== Math.round(w * dpr)) canvas.width = Math.round(w * dpr);
+    if (canvas.height !== Math.round(h * dpr)) canvas.height = Math.round(h * dpr);
+    var g = canvas.getContext('2d');
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.clearRect(0, 0, w, h);
+    var barLen = engine.meter.barLen;
+    var span = barLen * 4; // beats visible
+    var now = playing ? beatAt(ctx.currentTime) : 0;
+    var left = playing ? now - span * 0.75 : 0;
+    var x = function (b) { return ((b - left) / span) * w; };
+    var laneH = h / lanes.length;
+    var grid = cssVar('--grid');
+    var strong = cssVar('--grid-strong');
+    for (var s = Math.ceil(left * 4); s <= (left + span) * 4; s++) {
+      var b = s / 4;
+      var isBar = Math.abs(b / barLen - Math.round(b / barLen)) < 1e-9;
+      g.strokeStyle = isBar ? strong : grid;
+      g.lineWidth = isBar ? 1.5 : s % 4 === 0 ? 1 : 0.5;
+      g.beginPath();
+      g.moveTo(x(b) + 0.5, 0);
+      g.lineTo(x(b) + 0.5, h);
+      g.stroke();
+      if (isBar && b >= 0) {
+        g.fillStyle = cssVar('--muted');
+        g.font = '11px ' + cssVar('--font-mono');
+        g.fillText(String(Math.round(b / barLen) + 1), x(b) + 4, 12);
+      }
+    }
+    var notes = playing ? played : previewNotes;
+    var colors = LANE_COLORS.map(cssVar);
+    for (var i = 0; i < notes.length; i++) {
+      var n = notes[i];
+      if (n.beat < left - 1 || n.beat > left + span) continue;
+      var bh = 6 + (laneH - 12) * (n.velocity / 127);
+      g.globalAlpha = 0.3 + 0.7 * (n.velocity / 127);
+      g.fillStyle = colors[n.lane % 4];
+      g.fillRect(x(n.beat), n.lane * laneH + laneH - 3 - bh, Math.max(3, (n.duration / span) * w), bh);
+    }
+    g.globalAlpha = 1;
+    if (playing) {
+      g.strokeStyle = cssVar('--accent');
+      g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(x(now), 0);
+      g.lineTo(x(now), h);
+      g.stroke();
+      var bar = Math.floor(now / barLen);
+      $('pos').innerHTML = 'bar <b>' + (bar + 1) + '</b> · beat <b>' + (Math.floor(now - bar * barLen) + 1) + '</b> · ' + notesCount + ' notes';
+      renderGrouping(engine, bar);
+      requestAnimationFrame(draw);
+    } else {
+      $('pos').innerHTML = 'bar <b>1</b> · beat <b>1</b> · preview of bars 1–4';
+      var pe = E.createEngine({ params: values, bpm: bpm });
+      pe.reset(0);
+      renderGrouping(pe, 0);
+    }
+  }
+
+  // Irregular mode: show the bar's grouping and where the bar starts in it.
+  var lastGrouping = '';
+  function renderGrouping(eng, bar) {
+    var box = $('grouping');
+    if (eng.mode !== 'irregular') {
+      if (lastGrouping !== 'organic') {
+        box.innerHTML = '<span class="hint">Organic: a drifting player with memory. Figures hold for a phrase and vary at its end.</span>';
+        lastGrouping = 'organic';
+      }
+      return;
+    }
+    var plan = null;
+    try { plan = eng.generator.debugPlan(Math.max(0, bar), eng.state); } catch (e) { plan = null; }
+    if (!plan || !plan.groups) return;
+    var key = plan.groups.join('+') + '@' + plan.phase;
+    if (key === lastGrouping) return;
+    lastGrouping = key;
+    var cycle = plan.groups.reduce(function (a, b) { return a + b; }, 0);
+    var html = '<span class="hint">Grouping</span>';
+    var acc = 0;
+    plan.groups.forEach(function (gl) {
+      var now = plan.phase >= acc && plan.phase < acc + gl;
+      html += '<span class="g' + (now ? ' now' : '') + '">' + gl + '</span>';
+      acc += gl;
+    });
+    html += '<span class="hint">' + cycle + ' units' + (cycle !== 16 ? ', slides across the bar line' : ', one bar') + '</span>';
+    box.innerHTML = html;
+  }
+
+  // ---- wire up --------------------------------------------------------------
+  buildMode();
+  renderMode();
+  var rack = $('rack');
+  knobSpecs.forEach(function (p) {
+    rack.appendChild(buildKnob(p));
+    renderKnob(p);
+  });
+  buildLanes();
+  refreshSettings();
+
+  $('play').addEventListener('click', function () { if (playing) stop(); else start(true); });
+  $('restart').addEventListener('click', function () { start(true); });
+  $('bpm').addEventListener('change', function (e) { setTempo(e.target.value); });
+  $('seed').addEventListener('change', function (e) {
+    setParam('seed', Number(e.target.value));
+    e.target.value = values.seed;
+  });
+  $('dice').addEventListener('click', function () {
+    var s = Math.floor(Math.random() * 10000);
+    setParam('seed', s);
+    $('seed').value = values.seed;
+  });
+  $('reset').addEventListener('click', function () {
+    knobSpecs.forEach(function (p) { setKnob(p, p.default); });
+  });
+  $('save').addEventListener('click', saveClip);
+  $('copy').addEventListener('click', function () {
+    var text = settingsText();
+    var done = function () { $('status').textContent = 'Settings copied.'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { selectSettings(); });
+    } else selectSettings();
+  });
+  function selectSettings() {
+    var r = document.createRange();
+    r.selectNodeContents($('settings'));
+    var sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+    $('status').textContent = 'Settings selected. Press Cmd+C or Ctrl+C to copy.';
+  }
+  $('midi').addEventListener('click', connectMidi);
+  window.addEventListener('resize', function () { if (!playing) draw(); });
+
+  schedulePreview();
+
+  // For tests: the notes a saved clip would contain.
+  window.__organicLab = { clipEvents: clipEvents, midiBytes: midiBytes, zipOne: zipOne, values: values };
+})();
+</script>
+</body>
+</html>
