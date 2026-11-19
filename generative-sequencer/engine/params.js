@@ -24,8 +24,8 @@ const PARAMS = [
     doc: 'Amount of ghost notes and flams.' },
   { id: 'seed', name: 'Seed', type: 'int', min: 0, max: 9999, default: 1, unit: '',
     doc: 'Random seed. Same seed and settings give the same performance.' },
-  { id: 'mode', name: 'Mode', type: 'enum', options: ['Organic', 'Irregular'], min: 0, max: 1, default: 0, unit: '',
-    doc: 'Pattern type. Organic: a drifting player with memory. Irregular: odd groupings (3+3+2...) that reshape the bar.' },
+  { id: 'mode', name: 'Mode', type: 'enum', options: ['Organic', 'Irregular', 'Mathematical', 'Physical'], min: 0, max: 3, default: 0, unit: '',
+    doc: 'Pattern type. Organic: a drifting player with memory. Irregular: odd groupings (3+3+2...). Mathematical: Euclidean rhythms and polymeters. Physical: pendulums and bouncing balls.' },
 ];
 
 const BY_ID = {};

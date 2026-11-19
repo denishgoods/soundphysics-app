@@ -809,7 +809,7 @@
 					"presentation_rect": [
 						8,
 						4,
-						120,
+						118,
 						20
 					],
 					"fontface": 1,
@@ -1395,14 +1395,14 @@
 					"patching_rect": [
 						830,
 						800,
-						140,
+						300,
 						20
 					],
 					"presentation": 1,
 					"presentation_rect": [
 						130,
 						4,
-						140,
+						300,
 						18
 					],
 					"saved_attribute_attributes": {
@@ -1411,15 +1411,17 @@
 							"parameter_shortname": "Mode",
 							"parameter_type": 2,
 							"parameter_mmin": 0,
-							"parameter_mmax": 1,
+							"parameter_mmax": 3,
 							"parameter_initial": [
 								0
 							],
 							"parameter_initial_enable": 1,
-							"parameter_info": "Pattern type. Organic: a drifting player with memory. Irregular: odd groupings (3+3+2...) that reshape the bar.",
+							"parameter_info": "Pattern type. Organic: a drifting player with memory. Irregular: odd groupings (3+3+2...). Mathematical: Euclidean rhythms and polymeters. Physical: pendulums and bouncing balls.",
 							"parameter_enum": [
 								"Organic",
-								"Irregular"
+								"Irregular",
+								"Mathematical",
+								"Physical"
 							]
 						}
 					},

@@ -214,8 +214,8 @@ test('params: clamped to range, junk ignored, ints rounded', () => {
   }
   assert.deepEqual(E.PARAM_IDS, ['density', 'looseness', 'drift', 'swing', 'breath', 'memory', 'accent', 'ghosts', 'seed', 'mode']);
   eng.setParam('mode', 7);
-  assert.equal(eng.getParams().mode, 1);
-  assert.equal(eng.mode, 'irregular');
+  assert.equal(eng.getParams().mode, 3);
+  assert.equal(eng.mode, 'physical');
   assert.equal(eng.setParam('mode', 'Organic'), true);
   assert.equal(eng.mode, 'organic');
 });

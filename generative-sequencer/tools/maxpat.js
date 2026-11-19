@@ -141,7 +141,7 @@ function build(opts) {
   wire(statusSet, 0, statusLine, 0);
 
   // --- parameters (saved with the set, automatable)
-  comment('ORGANIC', 20, 760, [8, 4, 120, 20], { fontface: 1, fontsize: 12 });
+  comment('ORGANIC', 20, 760, [8, 4, 118, 20], { fontface: 1, fontsize: 12 });
   PARAMS.forEach((p, i) => {
     const x = 20 + i * 90;
     const px = 8 + i * 54;
@@ -171,9 +171,9 @@ function build(opts) {
         parameter_enable: 1,
         num_lines_patching: 1,
         num_lines_presentation: 1,
-        patching_rect: [x, 800, 140, 20],
+        patching_rect: [x, 800, 300, 20],
         presentation: 1,
-        presentation_rect: [130, 4, 140, 18],
+        presentation_rect: [130, 4, 300, 18],
         saved_attribute_attributes: { valueof },
         varname: p.name,
       });

@@ -10,7 +10,8 @@ const { metricWeight, swingWarp } = require('../meter');
 // so every mode gets the same feel controls.
 //
 // A candidate note may carry `w` (0..1), its emphasis; without it the soft
-// metric weight of its position is used.
+// metric weight of its position is used. A note with `vel` (0..1) sets its
+// own loudness instead (Accent then widens the contrast around it).
 
 const SALT_RENDER = 0x4e7d;
 const SALT_FLAM = 0xf1a3;
@@ -114,6 +115,9 @@ function render(c, k, barStart, st, out) {
     v = role.ghostVel * (0.85 + 0.3 * r.float()) * (1 - 0.25 * A);
   } else if (c.kind === 'fill') {
     v = role.velocity * (0.45 + 0.5 * c.fillProg) * (1 + 0.2 * A * c.fillProg);
+  } else if (c.vel !== undefined) {
+    // The note carries its own loudness (0..1), e.g. a fading bounce train.
+    v = role.velocity * (0.35 + 0.75 * c.vel) * (1 + A * 0.35 * (c.vel - 0.5));
   } else {
     const w = c.w !== undefined ? c.w : metricWeight(meter, c.pos);
     v = role.velocity * (1 + A * 0.55 * (w - 0.45));
